@@ -1,0 +1,297 @@
+import type { FormEventHandler, MouseEventHandler } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import classNames from 'classnames';
+import type { RectCords } from 'folds';
+import {
+  Box,
+  Button,
+  Chip,
+  Header,
+  IconButton,
+  Input,
+  Menu,
+  Scroll,
+  Spinner,
+  Text,
+  as,
+  config,
+} from 'folds';
+import { PopOut } from '$components/overlay-stack';
+import {
+  ArrowLeft,
+  CaretLeft,
+  CaretRight,
+  Download,
+  Minus,
+  Plus,
+  Warning,
+  sizedIcon,
+} from '$components/icons/phosphor';
+import FocusTrap from 'focus-trap-react';
+import { getDownloadFilename, saveFileToDevice } from '$utils/download';
+import { AsyncStatus } from '$hooks/useAsyncCallback';
+import { useImageGestures } from '$hooks/useImageGestures';
+import { createPage, usePdfDocumentLoader, usePdfJSLoader } from '$plugins/pdfjs-dist';
+import { stopPropagation } from '$utils/keyboard';
+import * as css from './PdfViewer.css';
+
+export type PdfViewerProps = {
+  name: string;
+  src: string;
+  requestClose: () => void;
+};
+
+export const PdfViewer = as<'div', PdfViewerProps>(
+  ({ className, name, src, requestClose, ...props }, ref) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    const {
+      transforms: { zoom },
+      zoomIn,
+      zoomOut,
+      setZoom,
+      onPointerDown,
+    } = useImageGestures(true, 0.2, 0.1, 5);
+
+    const [pdfJSState, loadPdfJS] = usePdfJSLoader();
+    const [docState, loadPdfDocument] = usePdfDocumentLoader(
+      pdfJSState.status === AsyncStatus.Success ? pdfJSState.data : undefined,
+      src
+    );
+    const isLoading =
+      pdfJSState.status === AsyncStatus.Loading || docState.status === AsyncStatus.Loading;
+    const [renderError, setRenderError] = useState(false);
+    const isError =
+      pdfJSState.status === AsyncStatus.Error ||
+      docState.status === AsyncStatus.Error ||
+      renderError;
+    const [pageNo, setPageNo] = useState(1);
+    const [jumpAnchor, setJumpAnchor] = useState<RectCords>();
+
+    useEffect(() => {
+      loadPdfJS();
+    }, [loadPdfJS]);
+    useEffect(() => {
+      if (pdfJSState.status === AsyncStatus.Success) {
+        loadPdfDocument();
+      }
+    }, [pdfJSState, loadPdfDocument]);
+
+    useEffect(() => {
+      if (docState.status !== AsyncStatus.Success) return undefined;
+      const doc = docState.data;
+      if (pageNo < 0 || pageNo > doc.numPages) return undefined;
+      let cancelled = false;
+      setRenderError(false);
+      createPage(doc, pageNo, { scale: zoom })
+        .then((canvas) => {
+          if (cancelled) return;
+          const container = containerRef.current;
+          if (!container) return;
+          container.textContent = '';
+          container.append(canvas);
+          canvas.style.touchAction = 'pan-x pan-y';
+        })
+        .catch(() => {
+          if (!cancelled) setRenderError(true);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [docState, pageNo, zoom]);
+
+    const handleDownload = () => {
+      void saveFileToDevice(src, getDownloadFilename(name, undefined, 'document.pdf'));
+    };
+
+    const handleJumpSubmit: FormEventHandler<HTMLFormElement> = (evt) => {
+      evt.preventDefault();
+      if (docState.status !== AsyncStatus.Success) return;
+      const jumpInput = evt.currentTarget.jumpInput as HTMLInputElement;
+      if (!jumpInput) return;
+      const jumpTo = Number.parseInt(jumpInput.value, 10);
+      setPageNo(Math.max(1, Math.min(docState.data.numPages, jumpTo)));
+      setJumpAnchor(undefined);
+    };
+
+    const handlePrevPage = () => {
+      setPageNo((n) => Math.max(n - 1, 1));
+    };
+
+    const handleNextPage = () => {
+      if (docState.status !== AsyncStatus.Success) return;
+      setPageNo((n) => Math.min(n + 1, docState.data.numPages));
+    };
+
+    const handleOpenJump: MouseEventHandler<HTMLButtonElement> = (evt) => {
+      setJumpAnchor(evt.currentTarget.getBoundingClientRect());
+    };
+
+    return (
+      <Box
+        className={classNames(css.PdfViewer, className)}
+        direction="Column"
+        data-gestures="ignore"
+        onPointerDown={(e) => e.stopPropagation()}
+        {...props}
+        ref={ref}
+      >
+        <Header className={css.PdfViewerHeader} size="400">
+          <Box grow="Yes" alignItems="Center" gap="200">
+            <IconButton size="300" radii="300" onClick={requestClose}>
+              {sizedIcon(ArrowLeft, '50')}
+            </IconButton>
+            <Text size="T300" truncate>
+              {name}
+            </Text>
+          </Box>
+          <Box shrink="No" alignItems="Center" gap="200">
+            <IconButton
+              variant={zoom < 1 ? 'Success' : 'SurfaceVariant'}
+              outlined={zoom < 1}
+              size="300"
+              radii="Pill"
+              onClick={zoomOut}
+              aria-label="Zoom Out"
+            >
+              {sizedIcon(Minus, '50')}
+            </IconButton>
+            <Chip variant="SurfaceVariant" radii="Pill" onClick={() => setZoom(zoom === 1 ? 2 : 1)}>
+              <Text size="B300">{Math.round(zoom * 100)}%</Text>
+            </Chip>
+            <IconButton
+              variant={zoom > 1 ? 'Success' : 'SurfaceVariant'}
+              outlined={zoom > 1}
+              size="300"
+              radii="Pill"
+              onClick={zoomIn}
+              aria-label="Zoom In"
+            >
+              {sizedIcon(Plus, '50')}
+            </IconButton>
+            <Chip
+              variant="Primary"
+              onClick={handleDownload}
+              radii="300"
+              before={sizedIcon(Download, '50')}
+            >
+              <Text size="B300">Download</Text>
+            </Chip>
+          </Box>
+        </Header>
+        <Box direction="Column" grow="Yes" alignItems="Center" justifyContent="Center" gap="200">
+          {isLoading && <Spinner variant="Secondary" size="600" />}
+          {isError && (
+            <>
+              <Text>Failed to load PDF</Text>
+              <Button
+                variant="Critical"
+                fill="Soft"
+                size="300"
+                radii="300"
+                before={sizedIcon(Warning, '50')}
+                onClick={loadPdfJS}
+              >
+                <Text size="B300">Retry</Text>
+              </Button>
+            </>
+          )}
+          {docState.status === AsyncStatus.Success && !renderError && (
+            <Scroll
+              ref={scrollRef}
+              size="300"
+              direction="Both"
+              variant="Surface"
+              visibility="Hover"
+              style={{
+                width: '100%',
+                height: '100%',
+                touchAction: 'pan-x pan-y',
+              }}
+            >
+              <Box style={{ minWidth: '100%', minHeight: '100%' }} onPointerDown={onPointerDown}>
+                <div className={css.PdfViewerContent} ref={containerRef} />
+              </Box>
+            </Scroll>
+          )}
+        </Box>
+        {docState.status === AsyncStatus.Success && (
+          <Header as="footer" className={css.PdfViewerFooter} size="400">
+            <Chip
+              variant="Secondary"
+              radii="300"
+              before={sizedIcon(CaretLeft, '50')}
+              onClick={handlePrevPage}
+              aria-disabled={pageNo <= 1}
+            >
+              <Text size="B300">Previous</Text>
+            </Chip>
+            <Box grow="Yes" justifyContent="Center" alignItems="Center" gap="200">
+              <PopOut
+                anchor={jumpAnchor}
+                align="Center"
+                position="Top"
+                content={
+                  <FocusTrap
+                    focusTrapOptions={{
+                      initialFocus: false,
+                      onDeactivate: () => setJumpAnchor(undefined),
+                      clickOutsideDeactivates: true,
+                      escapeDeactivates: stopPropagation,
+                    }}
+                  >
+                    <Menu variant="Surface">
+                      <Box
+                        as="form"
+                        onSubmit={handleJumpSubmit}
+                        style={{ padding: config.space.S200 }}
+                        direction="Column"
+                        gap="200"
+                      >
+                        <Input
+                          name="jumpInput"
+                          size="300"
+                          variant="Background"
+                          defaultValue={pageNo}
+                          min={1}
+                          max={docState.data.numPages}
+                          step={1}
+                          outlined
+                          type="number"
+                          radii="300"
+                          aria-label="Page Number"
+                        />
+                        <Button type="submit" size="300" variant="Primary" radii="300">
+                          <Text size="B300">Jump To Page</Text>
+                        </Button>
+                      </Box>
+                    </Menu>
+                  </FocusTrap>
+                }
+              >
+                <Chip
+                  onClick={handleOpenJump}
+                  variant="SurfaceVariant"
+                  radii="300"
+                  aria-pressed={jumpAnchor !== undefined}
+                >
+                  <Text size="B300">{`${pageNo}/${docState.data.numPages}`}</Text>
+                </Chip>
+              </PopOut>
+            </Box>
+            <Chip
+              variant="Primary"
+              radii="300"
+              after={sizedIcon(CaretRight, '50')}
+              onClick={handleNextPage}
+              aria-disabled={pageNo >= docState.data.numPages}
+            >
+              <Text size="B300">Next</Text>
+            </Chip>
+          </Header>
+        )}
+      </Box>
+    );
+  }
+);

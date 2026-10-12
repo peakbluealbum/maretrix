@@ -1,0 +1,536 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Box, Text, Scroll, Button, config, toRem, Spinner } from 'folds';
+import { Code, menuIcon } from '$components/icons/phosphor';
+import { PageContent, SettingsSectionPage } from '$components/page';
+import { SequenceCard, SequenceCardStyle } from '$components/sequence-card';
+import { SettingTile } from '$components/setting-tile';
+import LogoSVG from '$public/res/svg/logo.svg';
+import { clearCacheAndReload } from '$client/initMatrix';
+import { useMatrixClient } from '$hooks/useMatrixClient';
+import { Method } from '$types/matrix-sdk';
+import { useOpenShallowRoute } from '$pages/client/useShallowRoute';
+import { getBugReportPath } from '$pages/pathUtils';
+import { isDesktopTauri, isDesktopUpdaterEnabled } from '$utils/platform';
+import {
+  updatePhaseAtom,
+  updateBannerVisibleAtom,
+  triggerUpdateCheckAtom,
+  desktopUpdateLastCheckedAtom,
+} from '$state/desktopUpdate';
+import dayjs from 'dayjs';
+import { useAtomValue, useSetAtom } from 'jotai';
+
+type VersionResult =
+  | { error: { message: string } }
+  | { server: { name?: string; version?: string; compiler?: string } }
+  | undefined;
+
+function HomeserverInfo() {
+  const mx = useMatrixClient();
+  const [federationUrl, setFederationUrl] = useState<string>(mx.baseUrl);
+  const [version, setVersion] = useState<VersionResult>(undefined);
+
+  if (!version)
+    mx.http
+      .request(Method.Get, '/version', undefined, undefined, {
+        prefix: '/_matrix/federation/v1',
+        baseUrl: federationUrl,
+      })
+      .then((fetched_version) =>
+        setVersion({
+          server: fetched_version as { name?: string; version?: string; compiler?: string },
+        })
+      )
+      .catch((error) => {
+        if (federationUrl === mx.baseUrl) {
+          mx.http
+            .request(Method.Get, '/server', undefined, undefined, {
+              prefix: '/.well-known/matrix',
+              baseUrl: `https://${mx.getSafeUserId().split(':')[1]}`,
+            })
+            .then((well_known) => {
+              const mServer = (well_known as { 'm.server'?: string })['m.server'];
+              const newUrl = mServer ? `https://${mServer.split(':')[0]}` : federationUrl;
+              if (newUrl !== federationUrl) {
+                setFederationUrl(newUrl);
+              }
+            })
+            .catch((error_) => setVersion({ error: { message: String(error_) } }));
+        } else {
+          setVersion({ error: { message: String(error) } });
+        }
+      });
+
+  return (
+    <Box direction="Column" gap="100" id="homeserver-info">
+      <Text size="L400">Homeserver</Text>
+      <SequenceCard
+        className={SequenceCardStyle}
+        variant="SurfaceVariant"
+        direction="Column"
+        gap="400"
+      >
+        <SettingTile
+          title="Domain"
+          focusId="domain"
+          description={mx.getSafeUserId().split(':')[1]}
+        />
+      </SequenceCard>
+      <SequenceCard
+        className={SequenceCardStyle}
+        variant="SurfaceVariant"
+        direction="Column"
+        gap="400"
+      >
+        <SettingTile
+          title="Base URL"
+          focusId="base-url"
+          description={
+            <a href={mx.baseUrl} target="_blank" rel="noopener noreferrer">
+              {mx.baseUrl}
+            </a>
+          }
+        />
+      </SequenceCard>
+      {federationUrl !== mx.baseUrl && (
+        <SequenceCard
+          className={SequenceCardStyle}
+          variant="SurfaceVariant"
+          direction="Column"
+          gap="400"
+        >
+          <SettingTile
+            title="Federation URL"
+            focusId="federation-url"
+            description={
+              <a href={federationUrl} target="_blank" rel="noopener noreferrer">
+                {federationUrl}
+              </a>
+            }
+          />
+        </SequenceCard>
+      )}
+      {version ? (
+        <>
+          {'error' in version && version.error && (
+            <SequenceCard
+              className={SequenceCardStyle}
+              variant="SurfaceVariant"
+              direction="Column"
+              gap="400"
+            >
+              {version.error.message}
+            </SequenceCard>
+          )}
+          {'server' in version && version.server?.name && (
+            <SequenceCard
+              className={SequenceCardStyle}
+              variant="SurfaceVariant"
+              direction="Column"
+              gap="400"
+            >
+              <SettingTile
+                title="Name"
+                focusId="homeserver-name"
+                description={version.server?.name}
+              />
+            </SequenceCard>
+          )}
+          {'server' in version && version.server?.version && (
+            <SequenceCard
+              className={SequenceCardStyle}
+              variant="SurfaceVariant"
+              direction="Column"
+              gap="400"
+            >
+              <SettingTile
+                title="Version"
+                focusId="homeserver-version"
+                description={version.server?.version}
+              />
+            </SequenceCard>
+          )}
+          {'server' in version && version.server?.compiler && (
+            <SequenceCard
+              className={SequenceCardStyle}
+              variant="SurfaceVariant"
+              direction="Column"
+              gap="400"
+            >
+              <SettingTile
+                title="Compiler"
+                focusId="homeserver-compiler"
+                description={version.server?.compiler}
+              />
+            </SequenceCard>
+          )}
+        </>
+      ) : (
+        <SequenceCard
+          className={SequenceCardStyle}
+          variant="SurfaceVariant"
+          direction="Column"
+          gap="400"
+        >
+          <Spinner />
+        </SequenceCard>
+      )}
+    </Box>
+  );
+}
+
+type AboutProps = {
+  requestBack?: () => void;
+  requestClose: () => void;
+};
+export function About({ requestBack, requestClose }: Readonly<AboutProps>) {
+  const mx = useMatrixClient();
+  const devLabel = IS_RELEASE_TAG ? '' : '-dev';
+  const buildLabel = BUILD_HASH ? ` (${BUILD_HASH})` : '';
+  const openShallowRoute = useOpenShallowRoute();
+  const openBugReport = () => openShallowRoute(getBugReportPath());
+  const updatePhase = useAtomValue(updatePhaseAtom);
+  const setBannerVisible = useSetAtom(updateBannerVisibleAtom);
+  const triggerCheck = useSetAtom(triggerUpdateCheckAtom);
+  const lastChecked = useAtomValue(desktopUpdateLastCheckedAtom);
+  const [checking, setChecking] = useState(false);
+  const [resultText, setResultText] = useState<string | null>(null);
+  const resultTimerRef = useRef<number | null>(null);
+
+  const lastCheckedText = lastChecked
+    ? `Last checked: ${dayjs(lastChecked).format('HH:mm')}`
+    : null;
+
+  const clearResultTimer = useCallback(() => {
+    if (resultTimerRef.current !== null) {
+      clearTimeout(resultTimerRef.current);
+      resultTimerRef.current = null;
+    }
+  }, []);
+
+  const showResult = useCallback(
+    (text: string) => {
+      setChecking(false);
+      setResultText(text);
+      clearResultTimer();
+      resultTimerRef.current = window.setTimeout(() => {
+        setResultText(null);
+        resultTimerRef.current = null;
+      }, 3000);
+    },
+    [clearResultTimer]
+  );
+
+  useEffect(
+    () => () => {
+      clearResultTimer();
+    },
+    [clearResultTimer]
+  );
+
+  useEffect(() => {
+    if (!checking) return;
+    if (updatePhase.type === 'ready') {
+      showResult(`Update ${updatePhase.version} ready!`);
+      setBannerVisible(true);
+    } else if (updatePhase.type === 'idle') {
+      showResult('Up to date');
+    }
+  }, [updatePhase, checking, showResult, setBannerVisible]);
+
+  const handleCheckForUpdates = useCallback(() => {
+    setChecking(true);
+    setResultText(null);
+    triggerCheck((n) => n + 1);
+  }, [triggerCheck]);
+
+  return (
+    <SettingsSectionPage title="About" requestBack={requestBack} requestClose={requestClose}>
+      <Box grow="Yes">
+        <Scroll hideTrack visibility="Hover">
+          <PageContent>
+            <Box direction="Column" gap="700">
+              <Box gap="400">
+                <Box shrink="No">
+                  <img
+                    style={{ width: toRem(60), height: toRem(60) }}
+                    src={LogoSVG}
+                    alt="daiwascarlet logo"
+                  />
+                </Box>
+                <Box direction="Column" gap="300">
+                  <Box direction="Column" gap="100">
+                    <Box gap="100" alignItems="End">
+                      <Text size="H3">Maretrix</Text>
+                      <Text size="T200">{`v${APP_VERSION}${devLabel}${buildLabel}`}</Text>
+                    </Box>
+                    <Text>daiwascarlet&apos;s Matrix client.</Text>
+                    <Text size="T200">
+                      A modified fork of Sable, licensed AGPL-3.0. Upstream copyright and licence
+                      notices, and the third-party credits below, are preserved.
+                    </Text>
+                    <Text size="T200">
+                      Made with the help of AI, because I&apos;m not a self-righteous asshole
+                    </Text>
+                  </Box>
+
+                  <Box gap="200" wrap="Wrap">
+                    <Button
+                      as="a"
+                      href="https://github.com/SableClient/Sable"
+                      rel="noreferrer noopener"
+                      target="_blank"
+                      variant="Secondary"
+                      fill="Soft"
+                      size="300"
+                      radii="300"
+                      before={menuIcon(Code, { weight: 'fill' })}
+                    >
+                      <Text size="B300">Source Code</Text>
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
+              <Box direction="Column" gap="100">
+                <Text size="L400">Options</Text>
+                {isDesktopTauri() && isDesktopUpdaterEnabled() && (
+                  <SequenceCard
+                    className={SequenceCardStyle}
+                    variant="SurfaceVariant"
+                    direction="Column"
+                    gap="400"
+                  >
+                    <SettingTile
+                      title="Check for Updates"
+                      focusId="check-for-updates"
+                      description={`${resultText || 'Check for a new version.'}${lastCheckedText ? ` ${lastCheckedText}` : ''}`}
+                      after={
+                        <Button
+                          onClick={handleCheckForUpdates}
+                          variant="Secondary"
+                          fill="Soft"
+                          size="300"
+                          radii="300"
+                          outlined
+                          disabled={checking}
+                          before={checking ? <Spinner variant="Secondary" size="300" /> : undefined}
+                        >
+                          <Text size="B300">Check</Text>
+                        </Button>
+                      }
+                    />
+                  </SequenceCard>
+                )}
+                <SequenceCard
+                  className={SequenceCardStyle}
+                  variant="SurfaceVariant"
+                  direction="Column"
+                  gap="400"
+                >
+                  <SettingTile
+                    title="Clear Cache & Reload"
+                    focusId="clear-cache-and-reload"
+                    description="Clear all your locally stored data and reload from server."
+                    after={
+                      <Button
+                        onClick={() => clearCacheAndReload(mx)}
+                        variant="Secondary"
+                        fill="Soft"
+                        size="300"
+                        radii="300"
+                        outlined
+                      >
+                        <Text size="B300">Clear Cache</Text>
+                      </Button>
+                    }
+                  />
+                </SequenceCard>
+                <SequenceCard
+                  className={SequenceCardStyle}
+                  variant="SurfaceVariant"
+                  direction="Column"
+                  gap="400"
+                >
+                  <SettingTile
+                    title="Report an Issue"
+                    focusId="report-an-issue"
+                    description="Report a bug or request a feature on GitHub."
+                    after={
+                      <Button
+                        onClick={openBugReport}
+                        variant="Secondary"
+                        fill="Soft"
+                        size="300"
+                        radii="300"
+                        outlined
+                      >
+                        <Text size="B300">Report</Text>
+                      </Button>
+                    }
+                  />
+                </SequenceCard>
+              </Box>
+              <HomeserverInfo />
+              <Box direction="Column" gap="100">
+                <Text size="L400">Credits</Text>
+                <SequenceCard
+                  className={SequenceCardStyle}
+                  variant="SurfaceVariant"
+                  direction="Column"
+                  gap="400"
+                >
+                  <Box
+                    as="ul"
+                    direction="Column"
+                    gap="200"
+                    style={{
+                      margin: 0,
+                      paddingLeft: config.space.S400,
+                    }}
+                  >
+                    <li>
+                      <Text size="T300">
+                        <a
+                          href="https://github.com/cinnyapp/cinny"
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          Cinny
+                        </a>
+                        {', © '}
+                        <a
+                          href="https://github.com/ajbura"
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          Ajay Bura
+                        </a>
+                        {', is used under the terms of '}
+                        <a
+                          href="https://github.com/cinnyapp/cinny/blob/dev/LICENSE"
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          AGPL v3
+                        </a>
+                        .
+                      </Text>
+                    </li>
+                    <li>
+                      <Text size="T300">
+                        {'The '}
+                        <a
+                          href="https://github.com/matrix-org/matrix-js-sdk"
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          matrix-js-sdk
+                        </a>
+                        {', © '}
+                        <a
+                          href="https://matrix.org/foundation"
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          The Matrix.org Foundation C.I.C
+                        </a>
+                        {', is used under the terms of '}
+                        <a
+                          href="http://www.apache.org/licenses/LICENSE-2.0"
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          Apache 2.0
+                        </a>
+                        .
+                      </Text>
+                    </li>
+                    <li>
+                      <Text size="T300">
+                        {'The '}
+                        <a
+                          href="https://github.com/mozilla/twemoji-colr"
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          twemoji-colr
+                        </a>
+                        {' font, © '}
+                        <a href="https://mozilla.org/" target="_blank" rel="noreferrer noopener">
+                          Mozilla Foundation
+                        </a>
+                        {', is used under the terms of '}
+                        <a
+                          href="http://www.apache.org/licenses/LICENSE-2.0"
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          Apache 2.0
+                        </a>
+                        .
+                      </Text>
+                    </li>
+                    <li>
+                      <Text size="T300">
+                        {'The '}
+                        <a
+                          href="https://github.com/twitter/twemoji"
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          Twemoji
+                        </a>
+                        {' emoji art, © '}
+                        <a
+                          href="https://github.com/twitter/twemoji"
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          Twitter, Inc and other contributors
+                        </a>
+                        {', is used under the terms of '}
+                        <a
+                          href="https://creativecommons.org/licenses/by/4.0/"
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          CC-BY 4.0
+                        </a>
+                        .
+                      </Text>
+                    </li>
+                    <li>
+                      <Text size="T300">
+                        {'The '}
+                        <a
+                          href="https://material.io/design/sound/sound-resources.html"
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          Material sound resources
+                        </a>{' '}
+                        {', © '}
+                        <a href="https://google.com" target="_blank" rel="noreferrer noopener">
+                          Google
+                        </a>
+                        {', are used under the terms of '}
+                        <a
+                          href="https://creativecommons.org/licenses/by/4.0/"
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          CC-BY 4.0
+                        </a>
+                        .
+                      </Text>
+                    </li>
+                  </Box>
+                </SequenceCard>
+              </Box>
+            </Box>
+          </PageContent>
+        </Scroll>
+      </Box>
+    </SettingsSectionPage>
+  );
+}

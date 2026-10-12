@@ -1,0 +1,121 @@
+import type { ReactNode } from 'react';
+import { Box, Scroll, Line, as, Tooltip, Text, IconButton } from 'folds';
+import { TooltipProvider } from '$components/overlay-stack';
+import classNames from 'classnames';
+import { Image as MediaImage } from '$components/media';
+import { sizedIcon, Image as ImageIcon, type PhosphorIcon } from '$components/icons/phosphor';
+import * as css from './styles.css';
+
+export function Sidebar({ children }: { children: ReactNode }) {
+  return (
+    <Box className={css.Sidebar} shrink="No">
+      <Scroll size="0">
+        <Box className={css.SidebarContent} direction="Column" alignItems="Center" gap="100">
+          {children}
+        </Box>
+      </Scroll>
+    </Box>
+  );
+}
+
+export const SidebarStack = as<'div'>(({ className, children, ...props }, ref) => (
+  <Box
+    className={classNames(css.SidebarStack, className)}
+    direction="Column"
+    alignItems="Center"
+    gap="100"
+    {...props}
+    ref={ref}
+  >
+    {children}
+  </Box>
+));
+export function SidebarDivider() {
+  return <Line className={css.SidebarDivider} size="300" variant="Surface" />;
+}
+
+function SidebarBtn<T extends string>({
+  active,
+  label,
+  id,
+  onClick,
+  children,
+}: {
+  active?: boolean;
+  label: string;
+  id: T;
+  onClick: (id: T) => void;
+  children: ReactNode;
+}) {
+  return (
+    <TooltipProvider
+      delay={500}
+      position="Left"
+      tooltip={
+        <Tooltip id={`SidebarStackItem-${id}-label`}>
+          <Text size="T300">{label}</Text>
+        </Tooltip>
+      }
+    >
+      {(ref) => (
+        <IconButton
+          aria-pressed={active}
+          aria-labelledby={`SidebarStackItem-${id}-label`}
+          ref={ref}
+          onClick={() => onClick(id)}
+          size="400"
+          radii="300"
+          variant="Surface"
+        >
+          {children}
+        </IconButton>
+      )}
+    </TooltipProvider>
+  );
+}
+
+type GroupIconProps<T extends string> = {
+  active: boolean;
+  id: T;
+  label: string;
+  icon: PhosphorIcon;
+  onClick: (id: T) => void;
+};
+export function GroupIcon<T extends string>({
+  active,
+  id,
+  label,
+  icon,
+  onClick,
+}: GroupIconProps<T>) {
+  return (
+    <SidebarBtn active={active} id={id} label={label} onClick={onClick}>
+      {sizedIcon(icon, '200', { filled: active })}
+    </SidebarBtn>
+  );
+}
+
+type ImageGroupIconProps<T extends string> = {
+  active: boolean;
+  id: T;
+  label: string;
+  url?: string;
+  onClick: (id: T) => void;
+};
+export function ImageGroupIcon<T extends string>({
+  active,
+  id,
+  label,
+  url,
+  onClick,
+}: ImageGroupIconProps<T>) {
+  return (
+    <SidebarBtn active={active} id={id} label={label} onClick={onClick}>
+      {url ? (
+        <MediaImage className={css.SidebarBtnImg} src={url} alt={label} />
+      ) : (
+        sizedIcon(ImageIcon, '200', { filled: active })
+      )}
+    </SidebarBtn>
+  );
+}

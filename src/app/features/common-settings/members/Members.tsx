@@ -1,0 +1,365 @@
+import type { ChangeEventHandler, MouseEventHandler } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import type { RectCords } from 'folds';
+import { Box, Chip, config, IconButton, Input, Scroll, Spinner, Text, toRem } from 'folds';
+import { PopOut } from '$components/overlay-stack';
+import {
+  ArrowsDownUp,
+  CaretUp,
+  chipIcon,
+  composerIcon,
+  Funnel,
+  MagnifyingGlass,
+  menuIcon,
+  X,
+} from '$components/icons/phosphor';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import type { RoomMember } from '$types/matrix-sdk';
+import { PageContent, SettingsSectionPage } from '$components/page';
+import { useRoom } from '$hooks/useRoom';
+import { useRoomMembers } from '$hooks/useRoomMembers';
+import { useMatrixClient } from '$hooks/useMatrixClient';
+import { useGetMemberPowerLevel, usePowerLevels } from '$hooks/usePowerLevels';
+import { VirtualTile } from '$components/virtualizer';
+import { MemberTile } from '$components/member-tile';
+import { useMediaAuthentication } from '$hooks/useMediaAuthentication';
+import { getMxIdLocalPart } from '$utils/matrix';
+import { ServerBadge } from '$components/server-badge';
+import { useDebounce } from '$hooks/useDebounce';
+import type { SearchItemStrGetter, UseAsyncSearchOptions } from '$hooks/useAsyncSearch';
+import { useAsyncSearch } from '$hooks/useAsyncSearch';
+import { getMemberSearchStr } from '$utils/room/display';
+import { useMembershipFilter, useMembershipFilterMenu } from '$hooks/useMemberFilter';
+import { useMemberPowerSort, useMemberSort, useMemberSortMenu } from '$hooks/useMemberSort';
+import { settingsAtom } from '$state/settings';
+import { useSetting } from '$state/hooks/settings';
+import { UseStateProvider } from '$components/UseStateProvider';
+import { MemberMenuList } from '$components/MemberSortMenu';
+import { ScrollTopContainer } from '$components/scroll-top-container';
+import { useOpenUserRoomProfile, useUserRoomProfileState } from '$state/hooks/userRoomProfile';
+import { useSpaceOptionally } from '$hooks/useSpace';
+import { useFlattenPowerTagMembers, useGetMemberPowerTag } from '$hooks/useMemberPowerTag';
+import { useRoomCreators } from '$hooks/useRoomCreators';
+import { getMouseEventCords } from '$utils/dom';
+import { getMxIdServer } from '$utils/mxIdHelper';
+import { useAtomValue } from 'jotai';
+import { nicknamesAtom } from '$state/nicknames';
+
+const SEARCH_OPTIONS: UseAsyncSearchOptions = {
+  limit: 1000,
+  matchOptions: {
+    contain: true,
+  },
+  normalizeOptions: {
+    ignoreWhitespace: false,
+  },
+};
+
+const mxIdToName = (mxId: string) => getMxIdLocalPart(mxId) ?? mxId;
+
+type MembersProps = {
+  requestBack?: () => void;
+  requestClose: () => void;
+};
+export function Members({ requestBack, requestClose }: MembersProps) {
+  const mx = useMatrixClient();
+  const nicknames = useAtomValue(nicknamesAtom);
+  const useAuthentication = useMediaAuthentication();
+  const room = useRoom();
+  const members = useRoomMembers(mx, room.roomId);
+  const fetchingMembers = members.length < room.getJoinedMemberCount();
+  const openProfile = useOpenUserRoomProfile();
+  const profileUser = useUserRoomProfileState();
+  const space = useSpaceOptionally();
+
+  const powerLevels = usePowerLevels(room);
+  const creators = useRoomCreators(room);
+  const getPowerTag = useGetMemberPowerTag(room, creators, powerLevels);
+  const getPowerLevel = useGetMemberPowerLevel(powerLevels);
+
+  const [membershipFilterIndex, setMembershipFilterIndex] = useState(0);
+  const [sortFilterIndex, setSortFilterIndex] = useSetting(settingsAtom, 'memberSortFilterIndex');
+  const membershipFilterMenu = useMembershipFilterMenu();
+  const sortFilterMenu = useMemberSortMenu();
+  const membershipFilter = useMembershipFilter(membershipFilterIndex, membershipFilterMenu);
+  const memberSort = useMemberSort(sortFilterIndex, sortFilterMenu);
+  const memberPowerSort = useMemberPowerSort(creators, getPowerLevel);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const scrollTopAnchorRef = useRef<HTMLDivElement>(null);
+
+  const sortedMembers = useMemo(
+    () =>
+      Array.from(members)
+        .filter(membershipFilter.filterFn)
+        .toSorted(memberSort.sortFn)
+        .sort(memberPowerSort),
+    [members, membershipFilter, memberSort, memberPowerSort]
+  );
+
+  const getRoomMemberStr = useCallback<SearchItemStrGetter<RoomMember>>(
+    (m, query) => getMemberSearchStr(m, query, mxIdToName, nicknames),
+    [nicknames]
+  );
+
+  const [result, search, resetSearch] = useAsyncSearch(
+    sortedMembers,
+    getRoomMemberStr,
+    SEARCH_OPTIONS
+  );
+  if (!result && searchInputRef.current?.value) search(searchInputRef.current.value);
+
+  const flattenTagMembers = useFlattenPowerTagMembers(result?.items ?? sortedMembers, getPowerTag);
+
+  const virtualizer = useVirtualizer({
+    count: flattenTagMembers.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 40,
+    overscan: 10,
+  });
+
+  const handleSearchChange: ChangeEventHandler<HTMLInputElement> = useDebounce(
+    useCallback(
+      (evt) => {
+        if (evt.target.value) search(evt.target.value);
+        else resetSearch();
+      },
+      [search, resetSearch]
+    ),
+    { wait: 200 }
+  );
+
+  const handleSearchReset = () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.value = '';
+      searchInputRef.current.focus();
+    }
+    resetSearch();
+  };
+
+  const handleMemberClick: MouseEventHandler<HTMLButtonElement> = (evt) => {
+    const btn = evt.currentTarget as HTMLButtonElement;
+    const userId = btn.getAttribute('data-user-id');
+    if (userId) {
+      openProfile(
+        room.roomId,
+        space?.roomId,
+        userId,
+        undefined,
+        getMouseEventCords(evt.nativeEvent)
+      );
+    }
+  };
+
+  return (
+    <SettingsSectionPage
+      title={`${room.getJoinedMemberCount()} Members`}
+      requestBack={requestBack}
+      requestClose={requestClose}
+    >
+      <Box grow="Yes" style={{ position: 'relative' }}>
+        <Scroll ref={scrollRef} hideTrack visibility="Hover">
+          <PageContent>
+            <Box direction="Column" gap="200">
+              <Box
+                style={{ position: 'sticky', top: config.space.S100, zIndex: 1 }}
+                direction="Column"
+                gap="100"
+              >
+                <Input
+                  ref={searchInputRef}
+                  onChange={handleSearchChange}
+                  before={menuIcon(MagnifyingGlass)}
+                  variant="SurfaceVariant"
+                  size="500"
+                  placeholder="Search"
+                  outlined
+                  after={
+                    result && (
+                      <Chip
+                        variant={result.items.length > 0 ? 'Success' : 'Critical'}
+                        outlined
+                        size="400"
+                        radii="Pill"
+                        aria-pressed
+                        onClick={handleSearchReset}
+                        after={chipIcon(X)}
+                      >
+                        <Text size="B300">
+                          {result.items.length === 0
+                            ? 'No Results'
+                            : `${result.items.length} Results`}
+                        </Text>
+                      </Chip>
+                    )
+                  }
+                />
+              </Box>
+              <Box ref={scrollTopAnchorRef} alignItems="Center" justifyContent="End" gap="200">
+                <UseStateProvider initial={undefined}>
+                  {(anchor: RectCords | undefined, setAnchor) => (
+                    <PopOut
+                      anchor={anchor}
+                      position="Bottom"
+                      align="Start"
+                      offset={4}
+                      content={
+                        <MemberMenuList
+                          items={membershipFilterMenu}
+                          selected={membershipFilterIndex}
+                          onSelect={setMembershipFilterIndex}
+                          requestClose={() => setAnchor(undefined)}
+                        />
+                      }
+                    >
+                      <Chip
+                        onClick={
+                          ((evt) =>
+                            setAnchor(
+                              evt.currentTarget.getBoundingClientRect()
+                            )) as MouseEventHandler<HTMLButtonElement>
+                        }
+                        variant="SurfaceVariant"
+                        size="400"
+                        radii="300"
+                        before={chipIcon(Funnel)}
+                      >
+                        <Text size="T200">{membershipFilter.name}</Text>
+                      </Chip>
+                    </PopOut>
+                  )}
+                </UseStateProvider>
+                <UseStateProvider initial={undefined}>
+                  {(anchor: RectCords | undefined, setAnchor) => (
+                    <PopOut
+                      anchor={anchor}
+                      position="Bottom"
+                      align="End"
+                      offset={4}
+                      content={
+                        <MemberMenuList
+                          items={sortFilterMenu}
+                          selected={sortFilterIndex}
+                          onSelect={setSortFilterIndex}
+                          requestClose={() => setAnchor(undefined)}
+                        />
+                      }
+                    >
+                      <Chip
+                        onClick={
+                          ((evt) =>
+                            setAnchor(
+                              evt.currentTarget.getBoundingClientRect()
+                            )) as MouseEventHandler<HTMLButtonElement>
+                        }
+                        variant="SurfaceVariant"
+                        size="400"
+                        radii="300"
+                        after={chipIcon(ArrowsDownUp)}
+                      >
+                        <Text size="T200">{memberSort.name}</Text>
+                      </Chip>
+                    </PopOut>
+                  )}
+                </UseStateProvider>
+              </Box>
+              <ScrollTopContainer
+                style={{ top: toRem(64) }}
+                scrollRef={scrollRef}
+                anchorRef={scrollTopAnchorRef}
+              >
+                <IconButton
+                  onClick={() => virtualizer.scrollToOffset(0)}
+                  variant="Surface"
+                  radii="Pill"
+                  outlined
+                  size="300"
+                  aria-label="Scroll to Top"
+                >
+                  {composerIcon(CaretUp)}
+                </IconButton>
+              </ScrollTopContainer>
+              {fetchingMembers && (
+                <Box justifyContent="Center">
+                  <Spinner />
+                </Box>
+              )}
+
+              {!fetchingMembers && !result && flattenTagMembers.length === 0 && (
+                <Text style={{ padding: config.space.S300 }} align="Center">
+                  {`No "${membershipFilter.name}" Members`}
+                </Text>
+              )}
+
+              <Box
+                style={{
+                  position: 'relative',
+                  height: virtualizer.getTotalSize(),
+                }}
+                direction="Column"
+                gap="100"
+              >
+                {virtualizer.getVirtualItems().map((vItem) => {
+                  const tagOrMember = flattenTagMembers[vItem.index]!;
+
+                  if ('userId' in tagOrMember) {
+                    const server = getMxIdServer(tagOrMember.userId);
+                    const username = getMxIdLocalPart(tagOrMember.userId);
+                    return (
+                      <VirtualTile
+                        virtualItem={vItem}
+                        key={`${tagOrMember.userId}-${vItem.index}`}
+                        ref={virtualizer.measureElement}
+                      >
+                        <div style={{ paddingTop: config.space.S200 }}>
+                          <MemberTile
+                            data-user-id={tagOrMember.userId}
+                            onClick={handleMemberClick}
+                            aria-pressed={profileUser?.userId === tagOrMember.userId}
+                            mx={mx}
+                            room={room}
+                            member={tagOrMember}
+                            useAuthentication={useAuthentication}
+                            after={
+                              server && (
+                                <Box as="span" shrink="No" alignSelf="End" direction="Column">
+                                  <ServerBadge
+                                    server={username ?? ''}
+                                    fill="None"
+                                    style={{ alignSelf: 'End' }}
+                                  />
+                                  <ServerBadge server={server} fill="None" />
+                                </Box>
+                              )
+                            }
+                          />
+                        </div>
+                      </VirtualTile>
+                    );
+                  }
+
+                  return (
+                    <VirtualTile
+                      virtualItem={vItem}
+                      key={vItem.index}
+                      ref={virtualizer.measureElement}
+                    >
+                      <div
+                        style={{
+                          paddingTop: vItem.index === 0 ? 0 : config.space.S500,
+                        }}
+                      >
+                        <Text size="L400">{tagOrMember.name}</Text>
+                      </div>
+                    </VirtualTile>
+                  );
+                })}
+              </Box>
+            </Box>
+          </PageContent>
+        </Scroll>
+      </Box>
+    </SettingsSectionPage>
+  );
+}

@@ -1,0 +1,74 @@
+import { Avatar, AvatarFallback, AvatarImage, Box, Button, Text } from 'folds';
+import { composerIcon, Sticker } from '$components/icons/phosphor';
+import { useUserImagePack } from '$hooks/useImagePacks';
+import { SequenceCard, SequenceCardStyle } from '$components/sequence-card';
+import { SettingTile } from '$components/setting-tile';
+import { ImagePack, ImageUsage } from '$plugins/custom-emoji';
+import { useMatrixClient } from '$hooks/useMatrixClient';
+import { mxcUrlToHttp } from '$utils/matrix';
+import { useMediaAuthentication } from '$hooks/useMediaAuthentication';
+import { useRenderableMediaUrl } from '$hooks/useRenderableMediaUrl';
+
+type UserPackProps = {
+  onViewPack: (imagePack: ImagePack) => void;
+};
+export function UserPack({ onViewPack }: UserPackProps) {
+  const mx = useMatrixClient();
+  const useAuthentication = useMediaAuthentication();
+
+  const userPack = useUserImagePack();
+  const avatarMxc = userPack?.getAvatarUrl(ImageUsage.Emoticon);
+  const avatarUrl = avatarMxc ? mxcUrlToHttp(mx, avatarMxc, useAuthentication) : undefined;
+  const resolvedAvatarUrl = useRenderableMediaUrl(avatarUrl ?? undefined);
+
+  const handleView = () => {
+    if (userPack) {
+      onViewPack(userPack);
+    } else {
+      const defaultPack = new ImagePack(mx.getUserId() ?? '', {}, undefined);
+      onViewPack(defaultPack);
+    }
+  };
+
+  return (
+    <Box direction="Column" gap="100">
+      <Text size="L400">Default Pack</Text>
+      <SequenceCard
+        className={SequenceCardStyle}
+        variant="SurfaceVariant"
+        direction="Column"
+        gap="400"
+      >
+        <SettingTile
+          title={userPack?.meta.name ?? 'Unknown'}
+          focusId="default-pack"
+          description={userPack?.meta.attribution}
+          before={
+            <Avatar size="300" radii="300">
+              {avatarUrl ? (
+                <AvatarImage
+                  style={{ objectFit: 'contain' }}
+                  src={resolvedAvatarUrl ?? avatarUrl}
+                />
+              ) : (
+                <AvatarFallback>{composerIcon(Sticker, { weight: 'fill' })}</AvatarFallback>
+              )}
+            </Avatar>
+          }
+          after={
+            <Button
+              variant="Secondary"
+              fill="Soft"
+              size="300"
+              radii="300"
+              outlined
+              onClick={handleView}
+            >
+              <Text size="B300">View</Text>
+            </Button>
+          }
+        />
+      </SequenceCard>
+    </Box>
+  );
+}

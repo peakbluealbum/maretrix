@@ -1,0 +1,190 @@
+/* --- Light --- */
+.light-theme {
+  /* Background */
+  --sable-bg-container: #ffffff;
+  --sable-bg-container-hover: #f4f4f5;
+  --sable-bg-container-active: #e4e4e7;
+  --sable-bg-container-line: #d4d4d8;
+  --sable-bg-on-container: #18181b;
+
+  /* Surface */
+  --sable-surface-container: #f4f4f5;
+  --sable-surface-container-hover: #ffffff;
+  --sable-surface-container-active: #e4e4e7;
+  --sable-surface-container-line: #d4d4d8;
+  --sable-surface-on-container: #18181b;
+
+  /* Surface Variant */
+  --sable-surface-var-container: #e4e4e7;
+  --sable-surface-var-container-hover: #d4d4d8;
+  --sable-surface-var-container-active: #a1a1aa;
+  --sable-surface-var-container-line: #71717a;
+  --sable-surface-var-on-container: #27272a;
+
+  /* Primary */
+  --sable-primary-main: #6e56cf;
+  --sable-primary-main-hover: #644ec1;
+  --sable-primary-main-active: #5b47b3;
+  --sable-primary-main-line: #5240a5;
+  --sable-primary-on-main: #ffffff;
+  --sable-primary-container: #ded9e6;
+  --sable-primary-container-hover: #d3cde0;
+  --sable-primary-container-active: #c8c1d9;
+  --sable-primary-container-line: #bdb6d3;
+  --sable-primary-on-container: #2d235c;
+
+  /* Accent glow — see the dark block. */
+  --sable-accent-glow: drop-shadow(0 0 1.5px rgba(110, 86, 207, 0.9))
+    drop-shadow(0 0 6px rgba(110, 86, 207, 0.55));
+
+  /* Secondary */
+  --sable-sec-main: #514861;
+  --sable-sec-main-hover: #453e54;
+  --sable-sec-main-active: #3b3447;
+  --sable-sec-main-line: #312e3b;
+  --sable-sec-on-main: #ffffff;
+  --sable-sec-container: #eae8f0;
+  --sable-sec-container-hover: #dedce8;
+  --sable-sec-container-active: #d2d0e0;
+  --sable-sec-container-line: #c6c4d8;
+  --sable-sec-on-container: #2d235c;
+
+  /* Success */
+  --sable-success-main: #017343;
+  --sable-success-main-hover: #01683c;
+  --sable-success-main-active: #016239;
+  --sable-success-main-line: #015c36;
+  --sable-success-on-main: #ffffff;
+  --sable-success-container: #bfdcd0;
+  --sable-success-container-hover: #b3d5c7;
+  --sable-success-container-active: #a6cebd;
+  --sable-success-container-line: #99c7b4;
+  --sable-success-on-container: #01512f;
+
+  /* Warning */
+  --sable-warn-main: #864300;
+  --sable-warn-main-hover: #793c00;
+  --sable-warn-main-active: #723900;
+  --sable-warn-main-line: #6b3600;
+  --sable-warn-on-main: #ffffff;
+  --sable-warn-container: #e1d0bf;
+  --sable-warn-container-hover: #dbc7b2;
+  --sable-warn-container-active: #d5bda6;
+  --sable-warn-container-line: #cfb499;
+  --sable-warn-on-container: #5e2f00;
+
+  /* Critical */
+  --sable-crit-main: #9d0f0f;
+  --sable-crit-main-hover: #8d0e0e;
+  --sable-crit-main-active: #850d0d;
+  --sable-crit-main-line: #7e0c0c;
+  --sable-crit-on-main: #ffffff;
+  --sable-crit-container: #e7c3c3;
+  --sable-crit-container-hover: #e2b7b7;
+  --sable-crit-container-active: #ddabab;
+  --sable-crit-container-line: #d89f9f;
+  --sable-crit-on-container: #6e0b0b;
+
+  /* Other */
+  --sable-focus-ring: rgba(110, 86, 207, 0.4);
+  --sable-shadow: rgba(0, 0, 0, 0.1);
+  --sable-overlay: rgba(0, 0, 0, 0.4);
+}
+
+/* --- Dark (daiwascarlet: dark navy + scarlet, matched to daiwascarlet.com) --- */
+.dark-theme {
+  /* Background */
+  --sable-bg-container: #0d1526;
+  --sable-bg-container-hover: #121e35;
+  --sable-bg-container-active: #1a2540;
+  --sable-bg-container-line: #1f2b47;
+  --sable-bg-on-container: #eef1f7;
+
+  /* Surface */
+  --sable-surface-container: #121e35;
+  --sable-surface-container-hover: #1a2540;
+  --sable-surface-container-active: #22304f;
+  --sable-surface-container-line: #2a3a5e;
+  --sable-surface-on-container: #eef1f7;
+
+  /* Surface Variant */
+  --sable-surface-var-container: #080d1a;
+  --sable-surface-var-container-hover: #0d1526;
+  --sable-surface-var-container-active: #121e35;
+  --sable-surface-var-container-line: #1f2b47;
+  --sable-surface-var-on-container: #8a9bbf;
+
+  /* Primary — scarlet. NOTE: primary-main is used as *foreground* accent text as
+     well as a fill, so it is a slightly brightened scarlet (#ef4056, ~5.4:1 on
+     --sable-bg-container) rather than the raw brand #c8102e, which would sit at
+     ~2.6:1. The raw brand red is kept for the active/pressed state. */
+  --sable-primary-main: #ef4056;
+  --sable-primary-main-hover: #d9384c;
+  --sable-primary-main-active: #c8102e;
+  --sable-primary-main-line: #8f0b1f;
+  --sable-primary-on-main: #ffffff;
+  --sable-primary-container: #3d0c16;
+  --sable-primary-container-hover: #4a0f1a;
+  --sable-primary-container-active: #57121f;
+  --sable-primary-container-line: #641522;
+  --sable-primary-on-container: #ffd9de;
+
+  /* Accent glow — subtle halo behind the scarlet action icons (composer
+     gif/sticker/emoji triggers, call buttons). */
+  --sable-accent-glow: drop-shadow(0 0 1.5px rgba(239, 64, 86, 0.95))
+    drop-shadow(0 0 7px rgba(239, 64, 86, 0.7));
+
+  /* Secondary — the site's blue-grey */
+  --sable-sec-main: #8a9bbf;
+  --sable-sec-main-hover: #9aa9c9;
+  --sable-sec-main-active: #aab7d3;
+  --sable-sec-main-line: #6f7f9f;
+  --sable-sec-on-main: #0d1526;
+  --sable-sec-container: #1a2540;
+  --sable-sec-container-hover: #22304f;
+  --sable-sec-container-active: #2a3a5e;
+  --sable-sec-container-line: #33456e;
+  --sable-sec-on-container: #dbe3f2;
+
+  /* Success */
+  --sable-success-main: #3fbf7f;
+  --sable-success-main-hover: #4fca8d;
+  --sable-success-main-active: #5fd59b;
+  --sable-success-main-line: #2f9f66;
+  --sable-success-on-main: #04180e;
+  --sable-success-container: #0f3a28;
+  --sable-success-container-hover: #14492f;
+  --sable-success-container-active: #195838;
+  --sable-success-container-line: #1e6741;
+  --sable-success-on-container: #c8f2dd;
+
+  /* Warning */
+  --sable-warn-main: #e0a458;
+  --sable-warn-main-hover: #e8b273;
+  --sable-warn-main-active: #f0c08e;
+  --sable-warn-main-line: #c98c3c;
+  --sable-warn-on-main: #2b1a06;
+  --sable-warn-container: #4a2f12;
+  --sable-warn-container-hover: #573818;
+  --sable-warn-container-active: #643f1e;
+  --sable-warn-container-line: #714624;
+  --sable-warn-on-container: #f7e4cb;
+
+  /* Critical — deliberately shifted toward pink so it is distinguishable from
+     the scarlet primary. */
+  --sable-crit-main: #ff5470;
+  --sable-crit-main-hover: #f04560;
+  --sable-crit-main-active: #e0364f;
+  --sable-crit-main-line: #b80e2a;
+  --sable-crit-on-main: #ffffff;
+  --sable-crit-container: #450f1d;
+  --sable-crit-container-hover: #521222;
+  --sable-crit-container-active: #5f1527;
+  --sable-crit-container-line: #6c182c;
+  --sable-crit-on-container: #ffdde3;
+
+  /* Other */
+  --sable-focus-ring: rgba(239, 64, 86, 0.5);
+  --sable-shadow: rgba(0, 0, 0, 0.5);
+  --sable-overlay: rgba(6, 10, 20, 0.85);
+}

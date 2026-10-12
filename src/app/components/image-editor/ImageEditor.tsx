@@ -1,0 +1,52 @@
+import classNames from 'classnames';
+import { Box, Chip, Header, IconButton, Text, as } from 'folds';
+import { ArrowLeft, sizedIcon } from '$components/icons/phosphor';
+import { Image as MediaImage } from '$components/media';
+import * as css from './ImageEditor.css';
+
+type ImageEditorProps = {
+  name: string;
+  url: string;
+  requestClose: () => void;
+};
+
+const handleApply = () => {
+  //
+};
+
+export const ImageEditor = as<'div', ImageEditorProps>(
+  ({ className, name, url, requestClose, ...props }, ref) => {
+    return (
+      <Box
+        className={classNames(css.ImageEditor, className)}
+        direction="Column"
+        {...props}
+        ref={ref}
+      >
+        <Header className={css.ImageEditorHeader} size="400">
+          <Box grow="Yes" alignItems="Center" gap="200">
+            <IconButton size="300" radii="300" onClick={requestClose}>
+              {sizedIcon(ArrowLeft, '50')}
+            </IconButton>
+            <Text size="T300" truncate>
+              Image Editor
+            </Text>
+          </Box>
+          <Box shrink="No" alignItems="Center" gap="200">
+            <Chip variant="Primary" radii="300" onClick={handleApply}>
+              <Text size="B300">Save</Text>
+            </Chip>
+          </Box>
+        </Header>
+        <Box
+          grow="Yes"
+          className={css.ImageEditorContent}
+          justifyContent="Center"
+          alignItems="Center"
+        >
+          <MediaImage className={css.Image} src={url} alt={name} />
+        </Box>
+      </Box>
+    );
+  }
+);

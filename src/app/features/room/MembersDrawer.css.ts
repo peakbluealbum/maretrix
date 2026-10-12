@@ -1,0 +1,44 @@
+import { style } from '@vanilla-extract/css';
+import { config, toRem } from 'folds';
+
+export const MembersDrawer = style({
+  width: toRem(266),
+});
+
+export const MembersDrawerHeader = style({
+  flexShrink: 0,
+  padding: `0 ${config.space.S200} 0 ${config.space.S200}`,
+  borderBottomWidth: config.borderWidth.B300,
+});
+
+export const MemberDrawerContentBase = style({
+  position: 'relative',
+  overflow: 'hidden',
+});
+
+export const MemberDrawerContent = style({
+  padding: `${config.space.S200} 0`,
+});
+
+export const DrawerGroup = style({
+  paddingLeft: config.space.S200,
+});
+
+export const MembersGroup = style({
+  paddingLeft: config.space.S200,
+});
+export const MembersGroupLabel = style({
+  padding: config.space.S200,
+  selectors: {
+    '&:not(:first-child)': {
+      paddingTop: config.space.S500,
+    },
+  },
+});
+
+export const DrawerVirtualItem = style({
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+});

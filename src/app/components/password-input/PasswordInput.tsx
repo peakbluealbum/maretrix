@@ -1,0 +1,45 @@
+import type { ComponentProps } from 'react';
+import { forwardRef } from 'react';
+import { IconButton, Input, config } from 'folds';
+import { Eye, EyeSlash, sizedIcon } from '$components/icons/phosphor';
+import { UseStateProvider } from '$components/UseStateProvider';
+
+type PasswordInputProps = Omit<ComponentProps<typeof Input>, 'type' | 'size'> & {
+  size: '400' | '500';
+};
+export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
+  ({ variant = 'Background', size, style, after, ...props }, ref) => {
+    const paddingRight: string = size === '500' ? config.space.S300 : config.space.S200;
+
+    return (
+      <UseStateProvider initial={false}>
+        {(visible, setVisible) => (
+          <Input
+            {...props}
+            ref={ref}
+            style={{ paddingRight, ...style }}
+            type={visible ? 'text' : 'password'}
+            size={size}
+            variant={variant}
+            after={
+              <>
+                {after}
+                <IconButton
+                  onClick={() => setVisible(!visible)}
+                  type="button"
+                  variant={visible ? 'Warning' : variant}
+                  size="300"
+                  radii="300"
+                >
+                  {sizedIcon(visible ? Eye : EyeSlash, '100', {
+                    style: { opacity: config.opacity.P300 },
+                  })}
+                </IconButton>
+              </>
+            }
+          />
+        )}
+      </UseStateProvider>
+    );
+  }
+);

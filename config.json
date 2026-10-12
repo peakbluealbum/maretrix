@@ -1,0 +1,41 @@
+{
+  "productName": "Maretrix",
+  "defaultHomeserver": 0,
+  "homeserverList": [],
+  "allowCustomHomeservers": true,
+  "elementCallUrl": null,
+
+  "disableAccountSwitcher": false,
+  "hideUsernamePasswordFields": false,
+
+  "pushNotificationDetails": {
+    "pushNotifyUrl": "",
+    "vapidPublicKey": "",
+    "webPushAppID": "",
+    "nativePushAppID": "",
+    "unifiedPushAppID": ""
+  },
+
+  "themeCatalogBaseUrl": "",
+  "themeCatalogApprovedHostPrefixes": [],
+
+  "featuredCommunities": {
+    "openAsDefault": false,
+    "spaces": [],
+    "rooms": [],
+    "servers": []
+  },
+
+  "hashRouter": {
+    "enabled": false,
+    "basename": "/"
+  },
+
+  "gifs": {
+    "provider": "tenor",
+    "proxyUrl": "",
+    "tenorApiKey": "",
+    "klipyApiKey": "",
+    "giphyApiKey": ""
+  }
+}

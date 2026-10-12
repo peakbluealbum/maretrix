@@ -1,0 +1,623 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAtomValue } from 'jotai';
+import { Box, Text, Scroll, Switch, Button, MenuItem, config, color } from 'folds';
+import {
+  CaretDown,
+  CaretRight,
+  CaretUp,
+  chipIcon,
+  menuIcon,
+  Plus,
+} from '$components/icons/phosphor';
+import { EventType, NotificationCountType, type MatrixEvent } from '$types/matrix-sdk';
+import { PageContent, SettingsSectionPage } from '$components/page';
+import { SequenceCard, SequenceCardStyle } from '$components/sequence-card';
+import { SettingTile } from '$components/setting-tile';
+import { useSetting } from '$state/hooks/settings';
+import { settingsAtom } from '$state/settings';
+import { copyToClipboard } from '$utils/dom';
+import { getClientSyncDiagnostics } from '$client/initMatrix';
+import { useRoom } from '$hooks/useRoom';
+import type { StateTypeToState } from '$hooks/useRoomState';
+import { useRoomState } from '$hooks/useRoomState';
+import { useRoomAccountData } from '$hooks/useRoomAccountData';
+import { roomToUnreadAtom } from '$state/room/roomToUnread';
+import { allRoomsAtom } from '$state/room-list/roomList';
+import { allInvitesAtom } from '$state/room-list/inviteList';
+import { isNotificationEvent } from '$utils/room/unread';
+import { CutoutCard } from '$components/cutout-card';
+import type { AccountDataSubmitCallback } from '$components/AccountDataEditor';
+import { AccountDataEditor } from '$components/AccountDataEditor';
+import { useMatrixClient } from '$hooks/useMatrixClient';
+import { SendRoomEvent } from './SendRoomEvent';
+import type { StateEventInfo } from './StateEventEditor';
+import { StateEventEditor } from './StateEventEditor';
+
+type DeveloperToolsProps = {
+  requestBack?: () => void;
+  requestClose: () => void;
+};
+export function DeveloperTools({ requestBack, requestClose }: DeveloperToolsProps) {
+  const [developerTools, setDeveloperTools] = useSetting(settingsAtom, 'developerTools');
+  const mx = useMatrixClient();
+  const room = useRoom();
+  const roomStateMemory = useRoomState(room);
+  const accountData = useRoomAccountData(room);
+  const [fullApiState, setFullApiState] = useState<StateTypeToState>();
+  const [fetchingApiState, setFetchingApiState] = useState(false);
+  const roomState = fullApiState ?? roomStateMemory;
+
+  const handleFetchFullState = useCallback(async () => {
+    setFetchingApiState(true);
+    try {
+      const stateEvents = await mx.roomState(room.roomId);
+      const stateMap = new Map();
+      for (const event of stateEvents) {
+        let kToE = stateMap.get(event.type);
+        if (!kToE) {
+          kToE = new Map();
+          stateMap.set(event.type, kToE);
+        }
+        // Mock MatrixEvent structure enough for UI
+        kToE.set(event.state_key ?? '', {
+          event,
+          getType: () => event.type,
+          getContent: () => event.content,
+          getStateKey: () => event.state_key ?? '',
+          getSender: () => event.sender,
+        } as unknown as MatrixEvent);
+      }
+      setFullApiState(stateMap);
+    } catch (e) {
+      console.error('Failed to fetch full room state:', e);
+    } finally {
+      setFetchingApiState(false);
+    }
+  }, [mx, room.roomId]);
+
+  const [expandState, setExpandState] = useState(false);
+  const [expandUnreadDiagnostics, setExpandUnreadDiagnostics] = useState(false);
+  const [expandSlidingDiagnostics, setExpandSlidingDiagnostics] = useState(false);
+  const [expandStateType, setExpandStateType] = useState<string>();
+  const [openStateEvent, setOpenStateEvent] = useState<StateEventInfo>();
+  const [composeEvent, setComposeEvent] = useState<{ type?: string; stateKey?: string }>();
+
+  const [expandAccountData, setExpandAccountData] = useState(false);
+  const [accountDataType, setAccountDataType] = useState<string | null>();
+  const roomToUnread = useAtomValue(roomToUnreadAtom);
+  const allRooms = useAtomValue(allRoomsAtom);
+  const allInvites = useAtomValue(allInvitesAtom);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setTick((v) => v + 1), 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const unreadDiagnostics = useMemo(() => {
+    const userId = mx.getUserId();
+    const clientSyncState = mx.getSyncState();
+    const liveEvents = room.getLiveTimeline().getEvents();
+    const latestTimelineEvent = liveEvents[liveEvents.length - 1];
+    const latestTimelineEventId = latestTimelineEvent?.getId() ?? null;
+    const latestMessageEvent = [...liveEvents].toReversed().find((event) => {
+      const type = event.getType();
+      return (
+        type === (EventType.RoomMessage as string) ||
+        type === (EventType.RoomMessageEncrypted as string) ||
+        type === (EventType.Sticker as string)
+      );
+    });
+    const latestMessageEventId = latestMessageEvent?.getId() ?? null;
+    const latestNotificationEvent = [...liveEvents]
+      .toReversed()
+      .find((event) => isNotificationEvent(event));
+    const latestNotificationEventId = latestNotificationEvent?.getId() ?? null;
+    const fullyReadEventId =
+      room.getAccountData(EventType.FullyRead)?.getContent<{ event_id?: string }>()?.event_id ??
+      null;
+    const readUpToEventId = userId ? (room.getEventReadUpTo(userId) ?? null) : null;
+    const sdkUnreadTotal = room.getUnreadNotificationCount(NotificationCountType.Total);
+    const sdkUnreadHighlight = room.getUnreadNotificationCount(NotificationCountType.Highlight);
+    const atomUnread = roomToUnread.get(room.roomId);
+
+    return {
+      roomId: room.roomId,
+      userId: userId ?? null,
+      clientSyncState,
+      roomMembership: room.getMyMembership(),
+      roomInJoinedListAtom: allRooms.includes(room.roomId),
+      roomInInviteListAtom: allInvites.includes(room.roomId),
+      timelineSize: liveEvents.length,
+      latestTimelineEventId,
+      latestMessageEventId,
+      latestNotificationEventId,
+      fullyReadEventId,
+      readUpToEventId,
+      hasReadLatestLive: !!(
+        userId &&
+        latestTimelineEventId &&
+        room.hasUserReadEvent(userId, latestTimelineEventId)
+      ),
+      hasReadLatestNotification: !!(
+        userId &&
+        latestNotificationEventId &&
+        room.hasUserReadEvent(userId, latestNotificationEventId)
+      ),
+      sdkUnread: {
+        total: sdkUnreadTotal,
+        highlight: sdkUnreadHighlight,
+      },
+      atomUnread: atomUnread
+        ? {
+            total: atomUnread.total,
+            highlight: atomUnread.highlight,
+          }
+        : null,
+    };
+  }, [mx, room, roomToUnread, allRooms, allInvites]);
+
+  const syncDiagnostics = getClientSyncDiagnostics(mx);
+
+  const handleClose = useCallback(() => {
+    setOpenStateEvent(undefined);
+    setComposeEvent(undefined);
+    setAccountDataType(undefined);
+  }, []);
+
+  const submitAccountData: AccountDataSubmitCallback = useCallback(
+    async (type, content) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await mx.setRoomAccountData(room.roomId, type as any, content);
+    },
+    [mx, room.roomId]
+  );
+
+  if (accountDataType !== undefined) {
+    return (
+      <AccountDataEditor
+        type={accountDataType ?? undefined}
+        content={accountDataType ? accountData.get(accountDataType) : undefined}
+        submitChange={submitAccountData}
+        requestClose={handleClose}
+      />
+    );
+  }
+
+  if (composeEvent) {
+    return <SendRoomEvent {...composeEvent} requestClose={handleClose} />;
+  }
+
+  if (openStateEvent) {
+    return <StateEventEditor {...openStateEvent} requestClose={handleClose} />;
+  }
+
+  return (
+    <SettingsSectionPage
+      title="Developer Tools"
+      requestBack={requestBack}
+      requestClose={requestClose}
+    >
+      <Box grow="Yes">
+        <Scroll hideTrack visibility="Hover">
+          <PageContent>
+            <Box direction="Column" gap="700">
+              <Box direction="Column" gap="100">
+                <Text size="L400">Options</Text>
+                <SequenceCard
+                  className={SequenceCardStyle}
+                  variant="SurfaceVariant"
+                  direction="Column"
+                  gap="400"
+                >
+                  <SettingTile
+                    title="Enable Developer Tools"
+                    after={
+                      <Switch
+                        variant="Primary"
+                        value={developerTools}
+                        onChange={setDeveloperTools}
+                      />
+                    }
+                  />
+                </SequenceCard>
+                {developerTools && (
+                  <SequenceCard
+                    className={SequenceCardStyle}
+                    variant="SurfaceVariant"
+                    direction="Column"
+                    gap="400"
+                  >
+                    <SettingTile
+                      title="Room ID"
+                      description={`Copy room ID to clipboard. ("${room.roomId}")`}
+                      after={
+                        <Button
+                          onClick={() => copyToClipboard(room.roomId ?? '<NO_ROOM_ID_FOUND>')}
+                          variant="Secondary"
+                          fill="Soft"
+                          size="300"
+                          radii="300"
+                          outlined
+                        >
+                          <Text size="B300">Copy</Text>
+                        </Button>
+                      }
+                    />
+                  </SequenceCard>
+                )}
+              </Box>
+
+              {developerTools && (
+                <Box direction="Column" gap="100">
+                  <Text size="L400">Data</Text>
+
+                  <SequenceCard
+                    className={SequenceCardStyle}
+                    variant="SurfaceVariant"
+                    direction="Column"
+                    gap="400"
+                  >
+                    <SettingTile
+                      title="New Message Event"
+                      description="Create and send a new message event within the room."
+                      after={
+                        <Button
+                          onClick={() => setComposeEvent({})}
+                          variant="Secondary"
+                          fill="Soft"
+                          size="300"
+                          radii="300"
+                          outlined
+                        >
+                          <Text size="B300">Compose</Text>
+                        </Button>
+                      }
+                    />
+                  </SequenceCard>
+                  <SequenceCard
+                    className={SequenceCardStyle}
+                    variant="SurfaceVariant"
+                    direction="Column"
+                    gap="400"
+                  >
+                    <SettingTile
+                      title="Room State"
+                      description="State events of the room."
+                      after={
+                        <Button
+                          onClick={() => setExpandState(!expandState)}
+                          variant="Secondary"
+                          fill="Soft"
+                          size="300"
+                          radii="300"
+                          outlined
+                          before={menuIcon(expandState ? CaretUp : CaretDown, { weight: 'fill' })}
+                        >
+                          <Text size="B300">{expandState ? 'Collapse' : 'Expand'}</Text>
+                        </Button>
+                      }
+                    />
+                    {expandState && (
+                      <Box direction="Column" gap="100">
+                        <Box
+                          direction="Column"
+                          gap="100"
+                          style={{
+                            paddingInline: config.space.S400,
+                            paddingBottom: config.space.S300,
+                          }}
+                        >
+                          <Box direction="Column" gap="100">
+                            <Box justifyContent="SpaceBetween" alignItems="Center">
+                              <Text size="L400">Unread Diagnostics</Text>
+                              <Button
+                                onClick={() => setExpandUnreadDiagnostics(!expandUnreadDiagnostics)}
+                                variant="Secondary"
+                                fill="Soft"
+                                size="300"
+                                radii="300"
+                                outlined
+                                before={menuIcon(expandUnreadDiagnostics ? CaretUp : CaretDown, {
+                                  weight: 'fill',
+                                })}
+                              >
+                                <Text size="B300">
+                                  {expandUnreadDiagnostics ? 'Collapse' : 'Expand'}
+                                </Text>
+                              </Button>
+                            </Box>
+                            {expandUnreadDiagnostics && (
+                              <Box direction="Column" gap="100">
+                                <Button
+                                  onClick={() =>
+                                    copyToClipboard(JSON.stringify(unreadDiagnostics, null, 2))
+                                  }
+                                  variant="Secondary"
+                                  fill="Soft"
+                                  size="300"
+                                  radii="300"
+                                  outlined
+                                >
+                                  <Text size="B300">Copy JSON</Text>
+                                </Button>
+                                <Text size="T200">
+                                  Client sync: {unreadDiagnostics.clientSyncState ?? 'null'} |
+                                  membership: {unreadDiagnostics.roomMembership}
+                                </Text>
+                                <Text size="T200">
+                                  In room atoms: joined{' '}
+                                  {unreadDiagnostics.roomInJoinedListAtom ? 'yes' : 'no'} | invite{' '}
+                                  {unreadDiagnostics.roomInInviteListAtom ? 'yes' : 'no'}
+                                </Text>
+                                <Text size="T200">
+                                  `readUpTo`: {unreadDiagnostics.readUpToEventId ?? 'null'}
+                                </Text>
+                                <Text size="T200">
+                                  `m.fully_read`: {unreadDiagnostics.fullyReadEventId ?? 'null'}
+                                </Text>
+                                <Text size="T200">
+                                  Latest timeline event:{' '}
+                                  {unreadDiagnostics.latestTimelineEventId ?? 'null'} | read?{' '}
+                                  {unreadDiagnostics.hasReadLatestLive ? 'yes' : 'no'}
+                                </Text>
+                                <Text size="T200">
+                                  Latest message event:{' '}
+                                  {unreadDiagnostics.latestMessageEventId ?? 'null'}
+                                </Text>
+                                <Text size="T200">
+                                  Latest notification:{' '}
+                                  {unreadDiagnostics.latestNotificationEventId ?? 'null'} | read?{' '}
+                                  {unreadDiagnostics.hasReadLatestNotification ? 'yes' : 'no'}
+                                </Text>
+                                <Text size="T200">
+                                  SDK unread: {unreadDiagnostics.sdkUnread.total} total /{' '}
+                                  {unreadDiagnostics.sdkUnread.highlight} highlight
+                                </Text>
+                                <Text size="T200">
+                                  Atom unread:{' '}
+                                  {unreadDiagnostics.atomUnread
+                                    ? `${unreadDiagnostics.atomUnread.total} total / ${unreadDiagnostics.atomUnread.highlight} highlight`
+                                    : 'none'}
+                                </Text>
+                              </Box>
+                            )}
+                          </Box>
+                          <Box direction="Column" gap="100">
+                            <Box justifyContent="SpaceBetween" alignItems="Center">
+                              <Text size="L400">Sliding Sync Diagnostics</Text>
+                              <Button
+                                onClick={() =>
+                                  setExpandSlidingDiagnostics(!expandSlidingDiagnostics)
+                                }
+                                variant="Secondary"
+                                fill="Soft"
+                                size="300"
+                                radii="300"
+                                outlined
+                                before={menuIcon(expandSlidingDiagnostics ? CaretUp : CaretDown, {
+                                  weight: 'fill',
+                                })}
+                              >
+                                <Text size="B300">
+                                  {expandSlidingDiagnostics ? 'Collapse' : 'Expand'}
+                                </Text>
+                              </Button>
+                            </Box>
+                            {expandSlidingDiagnostics && (
+                              <Box direction="Column" gap="100">
+                                <Text size="T200">Transport: {syncDiagnostics.transport}</Text>
+                                <Text size="T200">
+                                  Client sync state: {syncDiagnostics.syncState ?? 'null'}
+                                </Text>
+                                {syncDiagnostics.sliding ? (
+                                  <>
+                                    <Text size="T200">
+                                      Base URL: {syncDiagnostics.sliding.baseUrl}
+                                    </Text>
+                                    <Text size="T200">
+                                      Room timeline: {syncDiagnostics.sliding.timelineLimit}
+                                    </Text>
+                                  </>
+                                ) : (
+                                  <Text size="T200">Sliding manager: not attached</Text>
+                                )}
+                              </Box>
+                            )}
+                          </Box>
+                        </Box>
+                        <Box justifyContent="SpaceBetween" alignItems="Center">
+                          <Text size="L400">Events (Total: {roomState.size})</Text>
+                          <Button
+                            onClick={handleFetchFullState}
+                            disabled={fetchingApiState}
+                            variant="Secondary"
+                            fill="Soft"
+                            size="300"
+                            radii="300"
+                            outlined
+                          >
+                            <Text size="B300">
+                              {fetchingApiState ? 'Fetching...' : 'Fetch Full State'}
+                            </Text>
+                          </Button>
+                        </Box>
+                        <CutoutCard>
+                          <MenuItem
+                            onClick={() => setComposeEvent({ stateKey: '' })}
+                            variant="Surface"
+                            fill="None"
+                            size="300"
+                            radii="0"
+                            before={chipIcon(Plus)}
+                          >
+                            <Box grow="Yes">
+                              <Text size="T200" truncate>
+                                Add New
+                              </Text>
+                            </Box>
+                          </MenuItem>
+                          {Array.from(roomState.keys())
+                            .toSorted()
+                            .map((eventType) => {
+                              const expanded = eventType === expandStateType;
+                              const stateKeyToEvents = roomState.get(eventType);
+                              if (!stateKeyToEvents) return null;
+
+                              return (
+                                <Box id={eventType} key={eventType} direction="Column" gap="100">
+                                  <MenuItem
+                                    onClick={() =>
+                                      setExpandStateType(expanded ? undefined : eventType)
+                                    }
+                                    variant="Surface"
+                                    fill="None"
+                                    size="300"
+                                    radii="0"
+                                    before={chipIcon(expanded ? CaretDown : CaretRight)}
+                                    after={<Text size="L400">{stateKeyToEvents.size}</Text>}
+                                  >
+                                    <Box grow="Yes">
+                                      <Text size="T200" truncate>
+                                        {eventType}
+                                      </Text>
+                                    </Box>
+                                  </MenuItem>
+                                  {expanded && (
+                                    <div
+                                      style={{
+                                        marginLeft: config.space.S400,
+                                        borderLeft: `${config.borderWidth.B300} solid ${color.Surface.ContainerLine}`,
+                                      }}
+                                    >
+                                      <MenuItem
+                                        onClick={() =>
+                                          setComposeEvent({
+                                            type: eventType,
+                                            stateKey: '',
+                                          })
+                                        }
+                                        variant="Surface"
+                                        fill="None"
+                                        size="300"
+                                        radii="0"
+                                        before={chipIcon(Plus)}
+                                      >
+                                        <Box grow="Yes">
+                                          <Text size="T200" truncate>
+                                            Add New
+                                          </Text>
+                                        </Box>
+                                      </MenuItem>
+                                      {Array.from(stateKeyToEvents.keys())
+                                        .toSorted()
+                                        .map((stateKey) => (
+                                          <MenuItem
+                                            onClick={() => {
+                                              setOpenStateEvent({
+                                                type: eventType,
+                                                stateKey,
+                                                rawEvent: stateKeyToEvents.get(stateKey)?.event,
+                                              });
+                                            }}
+                                            key={stateKey}
+                                            variant="Surface"
+                                            fill="None"
+                                            size="300"
+                                            radii="0"
+                                            after={chipIcon(CaretRight)}
+                                          >
+                                            <Box grow="Yes">
+                                              <Text size="T200" truncate>
+                                                {stateKey ? `"${stateKey}"` : 'Default'}
+                                              </Text>
+                                            </Box>
+                                          </MenuItem>
+                                        ))}
+                                    </div>
+                                  )}
+                                </Box>
+                              );
+                            })}
+                        </CutoutCard>
+                      </Box>
+                    )}
+                  </SequenceCard>
+                  <SequenceCard
+                    className={SequenceCardStyle}
+                    variant="SurfaceVariant"
+                    direction="Column"
+                    gap="400"
+                  >
+                    <SettingTile
+                      title="Account Data"
+                      description="Private personalization data stored within room."
+                      after={
+                        <Button
+                          onClick={() => setExpandAccountData(!expandAccountData)}
+                          variant="Secondary"
+                          fill="Soft"
+                          size="300"
+                          radii="300"
+                          outlined
+                          before={menuIcon(expandAccountData ? CaretUp : CaretDown, {
+                            weight: 'fill',
+                          })}
+                        >
+                          <Text size="B300">{expandAccountData ? 'Collapse' : 'Expand'}</Text>
+                        </Button>
+                      }
+                    />
+                    {expandAccountData && (
+                      <Box direction="Column" gap="100">
+                        <Box justifyContent="SpaceBetween">
+                          <Text size="L400">Events</Text>
+                          <Text size="L400">Total: {accountData.size}</Text>
+                        </Box>
+                        <CutoutCard>
+                          <MenuItem
+                            variant="Surface"
+                            fill="None"
+                            size="300"
+                            radii="0"
+                            before={chipIcon(Plus)}
+                            onClick={() => setAccountDataType(null)}
+                          >
+                            <Box grow="Yes">
+                              <Text size="T200" truncate>
+                                Add New
+                              </Text>
+                            </Box>
+                          </MenuItem>
+                          {Array.from(accountData.keys())
+                            .toSorted()
+                            .map((type) => (
+                              <MenuItem
+                                key={type}
+                                variant="Surface"
+                                fill="None"
+                                size="300"
+                                radii="0"
+                                after={chipIcon(CaretRight)}
+                                onClick={() => setAccountDataType(type)}
+                              >
+                                <Box grow="Yes">
+                                  <Text size="T200" truncate>
+                                    {type}
+                                  </Text>
+                                </Box>
+                              </MenuItem>
+                            ))}
+                        </CutoutCard>
+                      </Box>
+                    )}
+                  </SequenceCard>
+                </Box>
+              )}
+            </Box>
+          </PageContent>
+        </Scroll>
+      </Box>
+    </SettingsSectionPage>
+  );
+}

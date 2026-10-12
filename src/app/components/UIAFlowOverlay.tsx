@@ -1,0 +1,63 @@
+import type { ReactNode } from 'react';
+import { OverlayBackdrop, Box, config, Text, Tooltip, Chip, IconButton } from 'folds';
+import { TooltipProvider } from '$components/overlay-stack';
+import { Overlay } from '$components/overlay-stack';
+import { sizedIcon, X } from '$components/icons/phosphor';
+import FocusTrap from 'focus-trap-react';
+
+export type UIAFlowOverlayProps = {
+  currentStep: number;
+  stepCount: number;
+  children: ReactNode;
+  onCancel: () => void;
+};
+export function UIAFlowOverlay({
+  currentStep,
+  stepCount,
+  children,
+  onCancel,
+}: UIAFlowOverlayProps) {
+  return (
+    <Overlay open backdrop={<OverlayBackdrop />}>
+      <FocusTrap focusTrapOptions={{ initialFocus: false, escapeDeactivates: false }}>
+        <Box style={{ height: '100%' }} direction="Column" grow="Yes" gap="400">
+          <Box grow="Yes" direction="Column" alignItems="Center" justifyContent="Center">
+            {children}
+          </Box>
+          <Box
+            style={{ padding: config.space.S200 }}
+            shrink="No"
+            justifyContent="Center"
+            alignItems="Center"
+            gap="200"
+          >
+            <Chip as="div" radii="Pill" outlined>
+              <Text as="span" size="T300">{`Step ${currentStep}/${stepCount}`}</Text>
+            </Chip>
+            <TooltipProvider
+              tooltip={
+                <Tooltip variant="Critical">
+                  <Text>Exit</Text>
+                </Tooltip>
+              }
+              position="Top"
+            >
+              {(anchorRef) => (
+                <IconButton
+                  ref={anchorRef}
+                  variant="Critical"
+                  size="300"
+                  onClick={onCancel}
+                  radii="Pill"
+                  outlined
+                >
+                  {sizedIcon(X, '50')}
+                </IconButton>
+              )}
+            </TooltipProvider>
+          </Box>
+        </Box>
+      </FocusTrap>
+    </Overlay>
+  );
+}

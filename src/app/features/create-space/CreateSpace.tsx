@@ -1,0 +1,285 @@
+import type { ReactNode, FormEventHandler } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { Room } from '$types/matrix-sdk';
+import { MatrixError, RoomType } from '$types/matrix-sdk';
+import { Box, Chip, color, config, Input, Switch, Text, TextArea } from 'folds';
+import { SettingTile } from '$components/setting-tile';
+import { SequenceCard } from '$components/sequence-card';
+import { useMatrixClient } from '$hooks/useMatrixClient';
+import { millisecondsToMinutes, replaceSpaceWithDash } from '$utils/common';
+import { AsyncStatus, useAsyncCallback } from '$hooks/useAsyncCallback';
+import { useCapabilities } from '$hooks/useCapabilities';
+import { useAlive } from '$hooks/useAlive';
+import type { CreateRoomData } from '$components/create-room';
+import {
+  AdditionalCreatorInput,
+  createRoom,
+  CreateRoomAliasInput,
+  CreateRoomAccess,
+  CreateRoomAccessSelector,
+  RoomVersionSelector,
+  useAdditionalCreators,
+} from '$components/create-room';
+import {
+  restrictedSupported,
+  creatorsSupported,
+  knockSupported,
+  knockRestrictedSupported,
+} from '$utils/roomSupport';
+import { JoinRule } from '$types/matrix-sdk';
+import { getRoomIconComponent } from '$components/icons/roomIcons';
+import {
+  CaretDown,
+  CaretUp,
+  sizedIcon,
+  Warning,
+  type IconSizeToken,
+} from '$components/icons/phosphor';
+
+import { ErrorCode } from '../../cs-errorcode';
+import { Button } from '$components/button';
+
+const getCreateSpaceAccessToIcon = (
+  access: CreateRoomAccess,
+  size: IconSizeToken = '400'
+): ReactNode => {
+  let joinRule: JoinRule = JoinRule.Public;
+  if (access === CreateRoomAccess.Restricted) joinRule = JoinRule.Restricted;
+  if (access === CreateRoomAccess.Private) joinRule = JoinRule.Knock;
+
+  return sizedIcon(getRoomIconComponent(RoomType.Space, joinRule), size);
+};
+
+type CreateSpaceFormProps = {
+  defaultAccess?: CreateRoomAccess;
+  space?: Room;
+  onCreate?: (roomId: string) => void;
+};
+export function CreateSpaceForm({ defaultAccess, space, onCreate }: CreateSpaceFormProps) {
+  const mx = useMatrixClient();
+  const alive = useAlive();
+
+  const capabilities = useCapabilities();
+  const roomVersions = capabilities['m.room_versions'];
+  const [selectedRoomVersion, selectRoomVersion] = useState(roomVersions?.default ?? '1');
+  useEffect(() => {
+    // capabilities load async
+    selectRoomVersion(roomVersions?.default ?? '1');
+  }, [roomVersions?.default]);
+
+  const allowRestricted = space && restrictedSupported(selectedRoomVersion);
+
+  const [access, setAccess] = useState(
+    defaultAccess ?? (allowRestricted ? CreateRoomAccess.Restricted : CreateRoomAccess.Private)
+  );
+
+  const allowAdditionalCreators = creatorsSupported(selectedRoomVersion);
+  const { additionalCreators, addAdditionalCreator, removeAdditionalCreator } =
+    useAdditionalCreators();
+  const [federation, setFederation] = useState(true);
+  const [knock, setKnock] = useState(false);
+  const [advance, setAdvance] = useState(false);
+
+  const allowKnock = access === CreateRoomAccess.Private && knockSupported(selectedRoomVersion);
+  const allowKnockRestricted =
+    access === CreateRoomAccess.Restricted && knockRestrictedSupported(selectedRoomVersion);
+
+  const handleRoomVersionChange = (version: string) => {
+    if (!restrictedSupported(version)) {
+      setAccess(CreateRoomAccess.Private);
+    }
+    selectRoomVersion(version);
+  };
+
+  const [createState, create] = useAsyncCallback<string, Error | MatrixError, [CreateRoomData]>(
+    useCallback((data) => createRoom(mx, data), [mx])
+  );
+  const loading = createState.status === AsyncStatus.Loading;
+  const error = createState.status === AsyncStatus.Error ? createState.error : undefined;
+  const disabled = createState.status === AsyncStatus.Loading;
+
+  const handleSubmit: FormEventHandler<HTMLFormElement> = (evt) => {
+    evt.preventDefault();
+    if (disabled) return;
+    const form = evt.currentTarget;
+
+    const nameInput = form.nameInput as HTMLInputElement | undefined;
+    const topicTextArea = form.topicTextAria as HTMLTextAreaElement | undefined;
+    const aliasInput = form.aliasInput as HTMLInputElement | undefined;
+    const roomName = nameInput?.value.trim();
+    const roomTopic = topicTextArea?.value.trim();
+    const aliasLocalPart =
+      aliasInput && aliasInput.value ? replaceSpaceWithDash(aliasInput.value) : undefined;
+
+    if (!roomName) return;
+    const publicRoom = access === CreateRoomAccess.Public;
+    let roomKnock = false;
+    if (allowKnock && access === CreateRoomAccess.Private) {
+      roomKnock = knock;
+    }
+    if (allowKnockRestricted && access === CreateRoomAccess.Restricted) {
+      roomKnock = knock;
+    }
+
+    create({
+      version: selectedRoomVersion,
+      type: RoomType.Space,
+      parent: space,
+      access,
+      name: roomName,
+      topic: roomTopic || undefined,
+      aliasLocalPart: publicRoom ? aliasLocalPart : undefined,
+      knock: roomKnock,
+      allowFederation: federation,
+      additionalCreators: allowAdditionalCreators ? additionalCreators : undefined,
+    }).then((roomId) => {
+      if (alive()) {
+        onCreate?.(roomId);
+      }
+    });
+  };
+
+  return (
+    <Box as="form" onSubmit={handleSubmit} grow="Yes" direction="Column" gap="500">
+      <Box direction="Column" gap="100">
+        <Text size="L400">Access</Text>
+        <CreateRoomAccessSelector
+          value={access}
+          onSelect={setAccess}
+          canRestrict={allowRestricted}
+          disabled={disabled}
+          getIcon={getCreateSpaceAccessToIcon}
+        />
+      </Box>
+      <Box shrink="No" direction="Column" gap="100">
+        <Text size="L400">Name</Text>
+        <Input
+          required
+          before={getCreateSpaceAccessToIcon(access, '100')}
+          name="nameInput"
+          autoFocus
+          size="500"
+          variant="SurfaceVariant"
+          radii="400"
+          autoComplete="off"
+          disabled={disabled}
+        />
+      </Box>
+      <Box shrink="No" direction="Column" gap="100">
+        <Text size="L400">Topic (Optional)</Text>
+        <TextArea
+          name="topicTextAria"
+          size="500"
+          variant="SurfaceVariant"
+          radii="400"
+          disabled={disabled}
+        />
+      </Box>
+
+      {access === CreateRoomAccess.Public && <CreateRoomAliasInput disabled={disabled} />}
+
+      <Box shrink="No" direction="Column" gap="100">
+        <Box gap="200" alignItems="End">
+          <Text size="L400">Options</Text>
+          <Box grow="Yes" justifyContent="End">
+            <Chip
+              radii="Pill"
+              before={sizedIcon(advance ? CaretUp : CaretDown, '50')}
+              onClick={() => setAdvance(!advance)}
+              type="button"
+            >
+              <Text size="T200">Advanced Options</Text>
+            </Chip>
+          </Box>
+        </Box>
+        {allowAdditionalCreators && (
+          <SequenceCard
+            style={{ padding: config.space.S300 }}
+            variant="SurfaceVariant"
+            direction="Column"
+            gap="500"
+          >
+            <AdditionalCreatorInput
+              additionalCreators={additionalCreators}
+              onSelect={addAdditionalCreator}
+              onRemove={removeAdditionalCreator}
+            />
+          </SequenceCard>
+        )}
+        {access !== CreateRoomAccess.Public && advance && (allowKnock || allowKnockRestricted) && (
+          <SequenceCard
+            style={{ padding: config.space.S300 }}
+            variant="SurfaceVariant"
+            direction="Column"
+            gap="500"
+          >
+            <SettingTile
+              title="Knock to Join"
+              description="Anyone can send request to join this space."
+              after={
+                <Switch variant="Primary" value={knock} onChange={setKnock} disabled={disabled} />
+              }
+            />
+          </SequenceCard>
+        )}
+
+        <SequenceCard
+          style={{ padding: config.space.S300 }}
+          variant="SurfaceVariant"
+          direction="Column"
+          gap="500"
+        >
+          <SettingTile
+            title="Allow Federation"
+            description="Users from other servers can join."
+            after={
+              <Switch
+                variant="Primary"
+                value={federation}
+                onChange={setFederation}
+                disabled={disabled}
+              />
+            }
+          />
+        </SequenceCard>
+        {advance && (
+          <RoomVersionSelector
+            versions={roomVersions?.available ? Object.keys(roomVersions.available) : ['1']}
+            value={selectedRoomVersion}
+            onChange={handleRoomVersionChange}
+            disabled={disabled}
+          />
+        )}
+      </Box>
+
+      {error && (
+        <Box style={{ color: color.Critical.Main }} alignItems="Center" gap="200">
+          {sizedIcon(Warning, '100', { filled: true })}
+          <Text size="T300" style={{ color: color.Critical.Main }}>
+            <b>
+              {error instanceof MatrixError && error.name === (ErrorCode.M_LIMIT_EXCEEDED as string)
+                ? `Server rate-limited your request for ${millisecondsToMinutes(
+                    (error.data.retry_after_ms as number | undefined) ?? 0
+                  )} minutes!`
+                : error.message}
+            </b>
+          </Text>
+        </Box>
+      )}
+      <Box shrink="No" direction="Column" gap="200">
+        <Button
+          type="submit"
+          size="500"
+          variant="Primary"
+          radii="400"
+          disabled={disabled}
+          loading={loading}
+          spinnerVariant="Primary"
+          spinnerSize="200"
+        >
+          <Text size="B400">Create Space</Text>
+        </Button>
+      </Box>
+    </Box>
+  );
+}

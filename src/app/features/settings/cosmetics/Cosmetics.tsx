@@ -1,0 +1,404 @@
+import { useEffect, useRef, useState } from 'react';
+import type { ChangeEventHandler, KeyboardEventHandler, MouseEventHandler } from 'react';
+import type { RectCords } from 'folds';
+import { Box, Button, config, Input, Menu, MenuItem, Scroll, Text, toRem } from 'folds';
+import { PopOut } from '$components/overlay-stack';
+import { CaretDown, composerIcon } from '$components/icons/phosphor';
+import { isKeyHotkey } from 'is-hotkey';
+import FocusTrap from 'focus-trap-react';
+import { PageContent, SettingsSectionPage } from '$components/page';
+import { SequenceCard, SequenceCardStyle } from '$components/sequence-card';
+import { useSetting } from '$state/hooks/settings';
+import type { JumboEmojiSize, RenderUserCardsMode } from '$state/settings';
+import { settingsAtom } from '$state/settings';
+import { SettingTile, SettingToggle } from '$components/setting-tile';
+import { stopPropagation } from '$utils/keyboard';
+import { Appearance } from './Themes';
+import { AppIconSettings } from './AppIconSettings';
+
+function IconSizePxInput({
+  settingKey,
+  disabled,
+}: {
+  settingKey: 'iconCompactSizePx' | 'iconInlineSizePx' | 'iconToolbarSizePx' | 'iconEmptySizePx';
+  disabled?: boolean;
+}) {
+  const [sizePx, setSizePx] = useSetting(settingsAtom, settingKey);
+  const [inputValue, setInputValue] = useState(sizePx.toString());
+
+  const handleChange: ChangeEventHandler<HTMLInputElement> = (evt) => {
+    const val = evt.target.value;
+    setInputValue(val);
+
+    const parsed = Number.parseInt(val, 10);
+    if (!Number.isNaN(parsed) && parsed >= 0) {
+      setSizePx(parsed);
+    }
+  };
+
+  const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (evt) => {
+    if (isKeyHotkey('escape', evt)) {
+      evt.stopPropagation();
+      setInputValue(sizePx.toString());
+      (evt.target as HTMLInputElement).blur();
+    }
+
+    if (isKeyHotkey('enter', evt)) {
+      (evt.target as HTMLInputElement).blur();
+    }
+  };
+
+  return (
+    <Input
+      style={{ width: toRem(80) }}
+      variant={Number.parseInt(inputValue, 10) === sizePx ? 'Secondary' : 'Success'}
+      size="300"
+      radii="300"
+      type="number"
+      min="0"
+      value={inputValue}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      disabled={disabled}
+      outlined
+    />
+  );
+}
+
+function IconSizeSettings() {
+  return (
+    <Box direction="Column" gap="100">
+      <Text size="L400">Icon Sizes</Text>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Compact Icon Size"
+          focusId="icon-compact-size"
+          description="Small icons such as profile chips (default 16px)."
+          after={<IconSizePxInput settingKey="iconCompactSizePx" />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Inline Icon Size"
+          focusId="icon-inline-size"
+          description="Menu items and timeline events (default 20px)."
+          after={<IconSizePxInput settingKey="iconInlineSizePx" />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Toolbar Icon Size"
+          focusId="icon-toolbar-size"
+          description="Composer controls and header icons (default 24px)."
+          after={<IconSizePxInput settingKey="iconToolbarSizePx" />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Empty State Icon Size"
+          focusId="icon-empty-size"
+          description="Other stuff (default 32px)."
+          after={<IconSizePxInput settingKey="iconEmptySizePx" />}
+        />
+      </SequenceCard>
+    </Box>
+  );
+}
+
+const emojiSizeItems = [
+  { id: 'none', name: 'None (Same size as text)' },
+  { id: 'extraSmall', name: 'Extra Small' },
+  { id: 'small', name: 'Small' },
+  { id: 'normal', name: 'Normal' },
+  { id: 'large', name: 'Large' },
+  { id: 'extraLarge', name: 'Extra Large' },
+];
+
+function SelectJumboEmojiSize() {
+  const [menuCords, setMenuCords] = useState<RectCords>();
+  const [jumboEmojiSize, setJumboEmojiSize] = useSetting(settingsAtom, 'jumboEmojiSize');
+
+  const handleMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
+    setMenuCords(evt.currentTarget.getBoundingClientRect());
+  };
+
+  const handleSelect = (sizeId: string) => {
+    setJumboEmojiSize(sizeId as JumboEmojiSize);
+    setMenuCords(undefined);
+  };
+
+  const currentSizeName = emojiSizeItems.find((i) => i.id === jumboEmojiSize)?.name ?? 'Normal';
+
+  return (
+    <>
+      <Button
+        size="300"
+        variant="Secondary"
+        outlined
+        fill="Soft"
+        radii="300"
+        after={composerIcon(CaretDown)}
+        onClick={handleMenu}
+      >
+        <Text size="T300">{currentSizeName}</Text>
+      </Button>
+      <PopOut
+        anchor={menuCords}
+        offset={5}
+        position="Bottom"
+        align="End"
+        content={
+          <FocusTrap
+            focusTrapOptions={{
+              initialFocus: false,
+              onDeactivate: () => setMenuCords(undefined),
+              clickOutsideDeactivates: true,
+              isKeyForward: (evt: KeyboardEvent) =>
+                evt.key === 'ArrowDown' || evt.key === 'ArrowRight',
+              isKeyBackward: (evt: KeyboardEvent) =>
+                evt.key === 'ArrowUp' || evt.key === 'ArrowLeft',
+              escapeDeactivates: stopPropagation,
+            }}
+          >
+            <Menu>
+              <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+                {emojiSizeItems.map((item) => (
+                  <MenuItem
+                    key={item.id}
+                    size="300"
+                    variant={jumboEmojiSize === item.id ? 'Primary' : 'Surface'}
+                    radii="300"
+                    onClick={() => handleSelect(item.id)}
+                  >
+                    <Text size="T300">{item.name}</Text>
+                  </MenuItem>
+                ))}
+              </Box>
+            </Menu>
+          </FocusTrap>
+        }
+      />
+    </>
+  );
+}
+
+const profileCardRenderItems: { id: RenderUserCardsMode; name: string }[] = [
+  { id: 'both', name: 'Light & dark' },
+  { id: 'light', name: 'Light only' },
+  { id: 'dark', name: 'Dark only' },
+  { id: 'none', name: 'Off' },
+];
+
+function SelectRenderCustomProfileCards() {
+  const [menuCords, setMenuCords] = useState<RectCords>();
+  const [renderUserCardsMode, setRenderUserCardsMode] = useSetting(settingsAtom, 'renderUserCards');
+
+  const handleMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
+    setMenuCords(evt.currentTarget.getBoundingClientRect());
+  };
+
+  const handleSelect = (mode: RenderUserCardsMode) => {
+    setRenderUserCardsMode(mode);
+    setMenuCords(undefined);
+  };
+
+  const currentLabel =
+    profileCardRenderItems.find((i) => i.id === renderUserCardsMode)?.name ?? 'Light & dark';
+
+  return (
+    <>
+      <Button
+        size="300"
+        variant="Secondary"
+        outlined
+        fill="Soft"
+        radii="300"
+        after={composerIcon(CaretDown)}
+        onClick={handleMenu}
+      >
+        <Text size="T300">{currentLabel}</Text>
+      </Button>
+      <PopOut
+        anchor={menuCords}
+        offset={5}
+        position="Bottom"
+        align="End"
+        content={
+          <FocusTrap
+            focusTrapOptions={{
+              initialFocus: false,
+              onDeactivate: () => setMenuCords(undefined),
+              clickOutsideDeactivates: true,
+              isKeyForward: (evt: KeyboardEvent) =>
+                evt.key === 'ArrowDown' || evt.key === 'ArrowRight',
+              isKeyBackward: (evt: KeyboardEvent) =>
+                evt.key === 'ArrowUp' || evt.key === 'ArrowLeft',
+              escapeDeactivates: stopPropagation,
+            }}
+          >
+            <Menu>
+              <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+                {profileCardRenderItems.map((item) => (
+                  <MenuItem
+                    key={item.id}
+                    size="300"
+                    variant={renderUserCardsMode === item.id ? 'Primary' : 'Surface'}
+                    radii="300"
+                    onClick={() => handleSelect(item.id)}
+                  >
+                    <Text size="T300">{item.name}</Text>
+                  </MenuItem>
+                ))}
+              </Box>
+            </Menu>
+          </FocusTrap>
+        }
+      />
+    </>
+  );
+}
+
+function JumboEmoji() {
+  return (
+    <Box direction="Column" gap="100">
+      <Text size="L400">Jumbo Emoji</Text>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Jumbo Emoji Size"
+          focusId="jumbo-emoji-size"
+          description="Adjust the size of emojis sent without text."
+          after={<SelectJumboEmojiSize />}
+        />
+      </SequenceCard>
+    </Box>
+  );
+}
+
+function Privacy() {
+  const [privacyBlur, setPrivacyBlur] = useSetting(settingsAtom, 'privacyBlur');
+  const [privacyBlurAvatars, setPrivacyBlurAvatars] = useSetting(
+    settingsAtom,
+    'privacyBlurAvatars'
+  );
+  const [privacyBlurEmotes, setPrivacyBlurEmotes] = useSetting(settingsAtom, 'privacyBlurEmotes');
+
+  return (
+    <Box direction="Column" gap="100">
+      <Text size="L400">Privacy & Security</Text>
+
+      <SettingToggle
+        title="Blur Media"
+        focusId="blur-media"
+        description="Blurs images and videos in the timeline."
+        value={privacyBlur}
+        onChange={setPrivacyBlur}
+      />
+
+      <SettingToggle
+        title="Blur Avatars"
+        focusId="blur-avatars"
+        description="Blurs user profile pictures and room icons."
+        value={privacyBlurAvatars}
+        onChange={setPrivacyBlurAvatars}
+      />
+
+      <SettingToggle
+        title="Blur Emotes"
+        focusId="blur-emotes"
+        description="Blurs emoticons within messages."
+        value={privacyBlurEmotes}
+        onChange={setPrivacyBlurEmotes}
+      />
+    </Box>
+  );
+}
+
+function IdentityCosmetics() {
+  const [legacyUsernameColor, setLegacyUsernameColor] = useSetting(
+    settingsAtom,
+    'legacyUsernameColor'
+  );
+  const [uniformIcons, setUniformIcons] = useSetting(settingsAtom, 'uniformIcons');
+
+  return (
+    <Box direction="Column" gap="100">
+      <Text size="L400">Identity</Text>
+      <SettingToggle
+        title="Colorful Names"
+        focusId="colorful-names"
+        description="Assign unique colors to users based on their ID. Does not override room/space custom colors. Will override default role colors."
+        value={legacyUsernameColor}
+        onChange={setLegacyUsernameColor}
+      />
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Render Custom Profile Cards"
+          focusId="custom-profile-cards"
+          description="Choose whose profile card colors to show: everyone with a scheme, only light or dark schemes, or hide them."
+          after={<SelectRenderCustomProfileCards />}
+        />
+      </SequenceCard>
+      <SettingToggle
+        title="Consistent Icon Style"
+        focusId="consistent-icon-style"
+        description="Harmonize icon appearance with background fill"
+        value={uniformIcons}
+        onChange={setUniformIcons}
+      />
+    </Box>
+  );
+}
+
+type CosmeticsProps = {
+  requestBack?: () => void;
+  requestClose: () => void;
+};
+
+export function Cosmetics({ requestBack, requestClose }: CosmeticsProps) {
+  const [themeBrowserOpen, setThemeBrowserOpen] = useState(false);
+  const appearanceScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let timeoutId: number | undefined;
+    const el = appearanceScrollRef.current;
+
+    if (themeBrowserOpen && el) {
+      const scrollToTop = () => {
+        el.scrollTop = 0;
+      };
+
+      scrollToTop();
+      requestAnimationFrame(scrollToTop);
+      timeoutId = window.setTimeout(scrollToTop, 0);
+    }
+
+    return () => {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [themeBrowserOpen]);
+
+  return (
+    <SettingsSectionPage title="Appearance" requestBack={requestBack} requestClose={requestClose}>
+      <Box grow="Yes">
+        <Scroll ref={appearanceScrollRef} hideTrack visibility="Hover">
+          <PageContent>
+            <Box direction="Column" gap="700">
+              <Appearance onThemeBrowserOpenChange={setThemeBrowserOpen} />
+              {!themeBrowserOpen && (
+                <>
+                  <IdentityCosmetics />
+                  <AppIconSettings />
+                  <IconSizeSettings />
+                  <JumboEmoji />
+                  <Privacy />
+                </>
+              )}
+            </Box>
+          </PageContent>
+        </Scroll>
+      </Box>
+    </SettingsSectionPage>
+  );
+}
