@@ -1,6 +1,10 @@
 {
   "name": "maretrix",
   "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/peakbluealbum/maretrix.git"
+  },
   "description": "An almost stable Matrix client",
   "keywords": [],
   "license": "AGPL-3.0-only",

@@ -13,7 +13,7 @@ type SimilarIssue = {
   html_url: string;
 };
 
-const GITHUB_REPO = 'SableClient/Sable';
+const GITHUB_REPO = 'peakbluealbum/maretrix';
 
 async function searchSimilarIssues(query: string, signal: AbortSignal): Promise<SimilarIssue[]> {
   // Split into individual words, drop very short ones, and join with OR so that

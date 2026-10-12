@@ -277,7 +277,7 @@ export function About({ requestBack, requestClose }: Readonly<AboutProps>) {
                   <Box gap="200" wrap="Wrap">
                     <Button
                       as="a"
-                      href="https://github.com/SableClient/Sable"
+                      href="https://github.com/peakbluealbum/maretrix"
                       rel="noreferrer noopener"
                       target="_blank"
                       variant="Secondary"

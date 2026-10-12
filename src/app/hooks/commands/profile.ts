@@ -247,7 +247,7 @@ export const createProfileCommands = (ctx: CommandContext): Partial<CommandRecor
         } catch (e: unknown) {
           if (e instanceof MatrixError && e.errcode === ErrorCode.M_FORBIDDEN) {
             sendFeedback(
-              'Permission Denied. An admin must enable "Room Fonts" in Settings > Cosmetics in app.sable.moe or another supported client.',
+              'Permission Denied. An admin must enable "Room Fonts" in Settings > Cosmetics in Maretrix or another supported client.',
               room,
               userId
             );
@@ -295,7 +295,7 @@ export const createProfileCommands = (ctx: CommandContext): Partial<CommandRecor
         } catch (e: unknown) {
           if (e instanceof MatrixError && e.errcode === ErrorCode.M_FORBIDDEN) {
             sendFeedback(
-              'Permission Denied. An admin must enable "Space-Wide Fonts" in Settings > Cosmetics in app.sable.moe or another supported client.',
+              'Permission Denied. An admin must enable "Space-Wide Fonts" in Settings > Cosmetics in Maretrix or another supported client.',
               room,
               userId
             );

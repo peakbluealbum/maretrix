@@ -54,7 +54,7 @@ export const buildTauriSsoRedirectUrl = (server?: string): string => {
   return `${getAppBaseUrl()}${SSO_CALLBACK_PATH}?${params}`;
 };
 
-export const TAURI_OIDC_CLIENT_URI = 'https://app.sable.moe';
+export const TAURI_OIDC_CLIENT_URI = 'https://app.daiwascarlet.com';
 
 const TAURI_OIDC_PROTOCOL = 'moe.sable.app:';
 const TAURI_OIDC_PATH = '/login';

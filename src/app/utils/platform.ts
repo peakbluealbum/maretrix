@@ -108,7 +108,7 @@ export function getAppOrigin(): string {
     isTauri() ||
     (typeof window !== 'undefined' && window.location.hostname === 'tauri.localhost')
   ) {
-    return 'https://app.sable.moe';
+    return 'https://app.daiwascarlet.com';
   }
   return window.location.origin === 'null'
     ? `${window.location.protocol}//${window.location.host}`

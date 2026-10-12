@@ -1560,7 +1560,7 @@ function DiagnosticsAndPrivacy() {
       <Box gap="200" wrap="Wrap" style={{ paddingTop: '4px' }}>
         <Button
           as="a"
-          href="https://github.com/SableClient/Sable/blob/dev/docs/PRIVACY.md"
+          href="https://github.com/peakbluealbum/maretrix/blob/main/docs/PRIVACY.md"
           rel="noreferrer noopener"
           target="_blank"
           variant="Secondary"

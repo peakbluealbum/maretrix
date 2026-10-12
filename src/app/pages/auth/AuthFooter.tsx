@@ -17,7 +17,7 @@ export function AuthFooter() {
       <Text
         as="a"
         size="T300"
-        href="https://github.com/SableClient/Sable"
+        href="https://github.com/peakbluealbum/maretrix"
         target="_blank"
         rel="noreferrer"
       >
