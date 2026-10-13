@@ -1368,7 +1368,7 @@ export function ThemeCatalogSettings({ mode, onBrowseOpenChange }: ThemeCatalogS
             <SettingTile
               title="Browse catalog"
               focusId="theme-browse-remote"
-              description="Download themes and tweaks from the official catalog."
+              description="Download themes and tweaks from the community catalog."
               after={
                 <Button
                   variant="Secondary"
