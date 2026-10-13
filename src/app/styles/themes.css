@@ -1,94 +1,100 @@
-/* --- Light --- */
+/* --- Light (daiwascarlet: pale gray-blue + scarlet, light counterpart of the
+   dark block below) --- */
 .light-theme {
-  /* Background */
-  --sable-bg-container: #ffffff;
-  --sable-bg-container-hover: #f4f4f5;
-  --sable-bg-container-active: #e4e4e7;
-  --sable-bg-container-line: #d4d4d8;
-  --sable-bg-on-container: #18181b;
+  /* Background — a very light pale gray-blue rather than pure white, so the
+     theme still reads as "light" while sitting inside the navy/scarlet palette. */
+  --sable-bg-container: #eef1f6;
+  --sable-bg-container-hover: #e2e9f3;
+  --sable-bg-container-active: #d3dcea;
+  --sable-bg-container-line: #bfcbe0;
+  --sable-bg-on-container: #16233f;
 
-  /* Surface */
-  --sable-surface-container: #f4f4f5;
-  --sable-surface-container-hover: #ffffff;
-  --sable-surface-container-active: #e4e4e7;
-  --sable-surface-container-line: #d4d4d8;
-  --sable-surface-on-container: #18181b;
+  /* Surface — one step deeper than the background. */
+  --sable-surface-container: #e6ecf5;
+  --sable-surface-container-hover: #dee6f2;
+  --sable-surface-container-active: #cfd9e9;
+  --sable-surface-container-line: #b7c4db;
+  --sable-surface-on-container: #16233f;
 
-  /* Surface Variant */
-  --sable-surface-var-container: #e4e4e7;
-  --sable-surface-var-container-hover: #d4d4d8;
-  --sable-surface-var-container-active: #a1a1aa;
-  --sable-surface-var-container-line: #71717a;
-  --sable-surface-var-on-container: #27272a;
+  /* Surface Variant — the most recessed layer. */
+  --sable-surface-var-container: #dbe4f1;
+  --sable-surface-var-container-hover: #d2dcec;
+  --sable-surface-var-container-active: #c5d1e6;
+  --sable-surface-var-container-line: #aab9d3;
+  --sable-surface-var-on-container: #2b3757;
 
-  /* Primary */
-  --sable-primary-main: #6e56cf;
-  --sable-primary-main-hover: #644ec1;
-  --sable-primary-main-active: #5b47b3;
-  --sable-primary-main-line: #5240a5;
+  /* Primary — scarlet. NOTE: unlike the dark block (where the brightened
+     #ef4056 is needed to clear the dark background), the raw brand scarlet
+     # #c8102e already sits at ~5.2:1 on --sable-bg-container, so it is used
+     as-is. --sable-primary-on-main stays white (~5.9:1 on the fill). */
+  --sable-primary-main: #c8102e;
+  --sable-primary-main-hover: #b40e29;
+  --sable-primary-main-active: #a10c24;
+  --sable-primary-main-line: #8f0b1f;
   --sable-primary-on-main: #ffffff;
-  --sable-primary-container: #ded9e6;
-  --sable-primary-container-hover: #d3cde0;
-  --sable-primary-container-active: #c8c1d9;
-  --sable-primary-container-line: #bdb6d3;
-  --sable-primary-on-container: #2d235c;
+  --sable-primary-container: #f7d5da;
+  --sable-primary-container-hover: #f2c6cd;
+  --sable-primary-container-active: #ecb7c0;
+  --sable-primary-container-line: #e5a7b2;
+  --sable-primary-on-container: #6d0d1d;
 
-  /* Accent glow — see the dark block. */
-  --sable-accent-glow: drop-shadow(0 0 1.5px rgba(110, 86, 207, 0.9))
-    drop-shadow(0 0 6px rgba(110, 86, 207, 0.55));
+  /* Accent glow — scarlet halo behind the action icons, as in the dark block. */
+  --sable-accent-glow: drop-shadow(0 0 1.5px rgba(200, 16, 46, 0.75))
+    drop-shadow(0 0 6px rgba(200, 16, 46, 0.35));
 
-  /* Secondary */
-  --sable-sec-main: #514861;
-  --sable-sec-main-hover: #453e54;
-  --sable-sec-main-active: #3b3447;
-  --sable-sec-main-line: #312e3b;
+  /* Secondary — the site's blue-grey. */
+  --sable-sec-main: #55688f;
+  --sable-sec-main-hover: #4b5d81;
+  --sable-sec-main-active: #425372;
+  --sable-sec-main-line: #394865;
   --sable-sec-on-main: #ffffff;
-  --sable-sec-container: #eae8f0;
-  --sable-sec-container-hover: #dedce8;
-  --sable-sec-container-active: #d2d0e0;
-  --sable-sec-container-line: #c6c4d8;
-  --sable-sec-on-container: #2d235c;
+  --sable-sec-container: #dde5f2;
+  --sable-sec-container-hover: #d1dbea;
+  --sable-sec-container-active: #c5d1e2;
+  --sable-sec-container-line: #b7c4d9;
+  --sable-sec-on-container: #1e2b4c;
 
   /* Success */
-  --sable-success-main: #017343;
-  --sable-success-main-hover: #01683c;
-  --sable-success-main-active: #016239;
-  --sable-success-main-line: #015c36;
+  --sable-success-main: #0f7a4d;
+  --sable-success-main-hover: #0d6e45;
+  --sable-success-main-active: #0c653f;
+  --sable-success-main-line: #0b5c39;
   --sable-success-on-main: #ffffff;
-  --sable-success-container: #bfdcd0;
-  --sable-success-container-hover: #b3d5c7;
-  --sable-success-container-active: #a6cebd;
-  --sable-success-container-line: #99c7b4;
-  --sable-success-on-container: #01512f;
+  --sable-success-container: #cde8db;
+  --sable-success-container-hover: #c0e1d1;
+  --sable-success-container-active: #b3dac7;
+  --sable-success-container-line: #a6d2bc;
+  --sable-success-on-container: #094b2e;
 
   /* Warning */
-  --sable-warn-main: #864300;
-  --sable-warn-main-hover: #793c00;
-  --sable-warn-main-active: #723900;
-  --sable-warn-main-line: #6b3600;
+  --sable-warn-main: #99580f;
+  --sable-warn-main-hover: #8b500d;
+  --sable-warn-main-active: #81490c;
+  --sable-warn-main-line: #77430b;
   --sable-warn-on-main: #ffffff;
-  --sable-warn-container: #e1d0bf;
-  --sable-warn-container-hover: #dbc7b2;
-  --sable-warn-container-active: #d5bda6;
-  --sable-warn-container-line: #cfb499;
-  --sable-warn-on-container: #5e2f00;
+  --sable-warn-container: #f2dfc7;
+  --sable-warn-container-hover: #edd5b7;
+  --sable-warn-container-active: #e8cba7;
+  --sable-warn-container-line: #e3c197;
+  --sable-warn-on-container: #5b3507;
 
-  /* Critical */
-  --sable-crit-main: #9d0f0f;
-  --sable-crit-main-hover: #8d0e0e;
-  --sable-crit-main-active: #850d0d;
-  --sable-crit-main-line: #7e0c0c;
+  /* Critical — shifted toward pink so it stays distinguishable from the
+     scarlet primary, same intent as the dark block. */
+  --sable-crit-main: #c62259;
+  --sable-crit-main-hover: #b31f51;
+  --sable-crit-main-active: #a51c4b;
+  --sable-crit-main-line: #961840;
   --sable-crit-on-main: #ffffff;
-  --sable-crit-container: #e7c3c3;
-  --sable-crit-container-hover: #e2b7b7;
-  --sable-crit-container-active: #ddabab;
-  --sable-crit-container-line: #d89f9f;
-  --sable-crit-on-container: #6e0b0b;
+  --sable-crit-container: #f6d4e0;
+  --sable-crit-container-hover: #f2c5d5;
+  --sable-crit-container-active: #eeb6ca;
+  --sable-crit-container-line: #e9a7bf;
+  --sable-crit-on-container: #690f30;
 
   /* Other */
-  --sable-focus-ring: rgba(110, 86, 207, 0.4);
-  --sable-shadow: rgba(0, 0, 0, 0.1);
-  --sable-overlay: rgba(0, 0, 0, 0.4);
+  --sable-focus-ring: rgba(200, 16, 46, 0.35);
+  --sable-shadow: rgba(13, 21, 38, 0.12);
+  --sable-overlay: rgba(13, 21, 38, 0.45);
 }
 
 /* --- Dark (daiwascarlet: dark navy + scarlet, matched to daiwascarlet.com) --- */
