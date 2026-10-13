@@ -5,7 +5,7 @@
 
 @layer sable-reset {
   :root {
-    --tc-link: hsl(213deg 100% 45%);
+    --tc-link: #c8102e;
 
     /* user mxid colors */
     --mx-uc-1: hsl(208, 100%, 45%);
@@ -24,7 +24,7 @@
 
   .dark-theme,
   .sable-remote-kind-dark {
-    --tc-link: hsl(213deg 100% 80%);
+    --tc-link: #ef4056;
 
     --mx-uc-1: hsl(260, 100%, 75%);
     --mx-uc-2: hsl(320, 100%, 75%);

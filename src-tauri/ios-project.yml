@@ -92,8 +92,8 @@ targets:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIBackgroundModes: [audio, voip, remote-notification]
-        NSMicrophoneUsageDescription: Sable uses your microphone for calls.
-        NSCameraUsageDescription: Sable uses your camera for video calls.
+        NSMicrophoneUsageDescription: Maretrix uses your microphone for calls.
+        NSCameraUsageDescription: Maretrix uses your camera for video calls.
         UIRequiredDeviceCapabilities: [arm64, metal]
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -106,7 +106,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: {{apple.bundle-version-short}}
         CFBundleVersion: "{{apple.bundle-version}}"
-        NSPhotoLibraryAddUsageDescription: Sable saves images you download to your photo library.
+        NSPhotoLibraryAddUsageDescription: Maretrix saves images you download to your photo library.
         # Mirrors plugins.deep-link in tauri.conf.json: the plugin only patches
         # these in when cargo reruns its build script, so a fresh `tauri ios
         # init` silently loses them unless they live here.
