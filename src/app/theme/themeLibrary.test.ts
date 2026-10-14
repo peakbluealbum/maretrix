@@ -42,7 +42,7 @@ describe('themeLibrary', () => {
 
   it('provides consistent source labels', () => {
     expect(themeSourceLabel({ importedLocal: true })).toBe('Uploaded file');
-    expect(themeSourceLabel({ official: true })).toBe('Official catalog');
+    expect(themeSourceLabel({ official: true })).toBe('Third-party catalog');
     expect(themeSourceLabel({ url: 'https://themes.example/night.sable.css' })).toBe(
       'themes.example'
     );

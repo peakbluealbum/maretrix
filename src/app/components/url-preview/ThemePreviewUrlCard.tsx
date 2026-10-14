@@ -373,7 +373,7 @@ export function ThemePreviewUrlCard({ url }: { url: string }) {
       <SableChatPreviewPlaceholder
         kind="theme"
         url={url}
-        hostLabel={themeUrlHostLabel(url, 'Unofficial theme')}
+        hostLabel={themeUrlHostLabel(url, 'External theme')}
         isApprovedHost={isOfficial}
         onLoadPreview={() => {
           setUserTriggeredLoad(true);
@@ -392,7 +392,7 @@ export function ThemePreviewUrlCard({ url }: { url: string }) {
     previewQuery.data?.tags && previewQuery.data.tags.length > 0
       ? previewQuery.data.tags.join(', ')
       : '';
-  const sourceLabel = isOfficial ? 'Official catalog' : themeUrlHostLabel(url, 'Unofficial theme');
+  const sourceLabel = isOfficial ? 'Third-party catalog' : themeUrlHostLabel(url, 'External theme');
   const subtitleLine1 = [kindLabel, contrastLabel].filter(Boolean).join(' · ');
   const subtitleLine2 = [authorLabel, tagsLabel].filter(Boolean).join(' · ');
   const subtitle = (
@@ -434,7 +434,7 @@ export function ThemePreviewUrlCard({ url }: { url: string }) {
         subtitle={subtitle}
         beforePreview={
           showThirdPartyBanner ? (
-            <ThemeThirdPartyBanner hostLabel={themeUrlHostLabel(url, 'Unofficial theme')} />
+            <ThemeThirdPartyBanner hostLabel={themeUrlHostLabel(url, 'External theme')} />
           ) : undefined
         }
         previewCssText={previewQuery.data?.previewText ?? ''}

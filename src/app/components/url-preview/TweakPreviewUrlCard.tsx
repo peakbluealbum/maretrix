@@ -189,7 +189,7 @@ export function TweakPreviewUrlCard({ url }: { url: string }) {
       <SableChatPreviewPlaceholder
         kind="tweak"
         url={url}
-        hostLabel={themeUrlHostLabel(url, 'Unofficial tweak')}
+        hostLabel={themeUrlHostLabel(url, 'External tweak')}
         isApprovedHost={isOfficial}
         onLoadPreview={() => {
           setUserTriggeredLoad(true);
@@ -232,7 +232,7 @@ export function TweakPreviewUrlCard({ url }: { url: string }) {
     data.tags.length > 0 ? data.tags.join(', ') : '',
   ].filter(Boolean);
   const descLine = descParts.join(' · ');
-  const sourceLabel = isOfficial ? 'Official catalog' : themeUrlHostLabel(url, 'Unofficial tweak');
+  const sourceLabel = isOfficial ? 'Third-party catalog' : themeUrlHostLabel(url, 'External tweak');
 
   return (
     <Box
@@ -333,7 +333,7 @@ export function TweakPreviewUrlCard({ url }: { url: string }) {
       {showThirdPartyBanner ? (
         <ThemeThirdPartyBanner
           kind="tweak"
-          hostLabel={themeUrlHostLabel(url, 'Unofficial tweak')}
+          hostLabel={themeUrlHostLabel(url, 'External tweak')}
         />
       ) : undefined}
 

@@ -1609,7 +1609,7 @@ export function ThemeCatalogSettings({ mode, onBrowseOpenChange }: ThemeCatalogS
                                 clientConfig.themeCatalogApprovedHostPrefixes
                               )
                                 ? themeUrlHostLabel(row.previewUrl)
-                                : 'Official catalog'
+                                : 'Third-party catalog'
                             }
                             copyText={row.previewUrl}
                             thirdParty={isThirdPartyThemeUrl(
@@ -1739,7 +1739,7 @@ export function ThemeCatalogSettings({ mode, onBrowseOpenChange }: ThemeCatalogS
                               clientConfig.themeCatalogApprovedHostPrefixes
                             )
                               ? themeUrlHostLabel(row.fullUrl)
-                              : 'Official catalog'
+                              : 'Third-party catalog'
                           }
                         />
                       );

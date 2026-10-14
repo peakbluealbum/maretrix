@@ -100,7 +100,7 @@ export function ThemeMigrationBanner() {
         <Box style={{ padding: config.space.S400 }} direction="Column" gap="400">
           <Text priority="400">
             Older bundled color themes are no longer included in the app. Migrate to the same looks
-            from the official catalog (downloaded and cached on this device), or dismiss this
+            from the theme catalog (downloaded and cached on this device), or dismiss this
             reminder.
           </Text>
           {error && (

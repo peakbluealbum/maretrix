@@ -49,7 +49,7 @@ export function SableChatPreviewPlaceholder({
           {isApprovedHost ? bodyApproved : bodyThirdParty}
         </Text>
         <Text size="T200" priority="300">
-          {isApprovedHost ? 'Official catalog' : hostLabel}
+          {isApprovedHost ? 'Third-party catalog' : hostLabel}
         </Text>
         <Text
           size="T200"

@@ -34,7 +34,7 @@ export function themeSourceLabel({
   url?: string;
 }): string {
   if (importedLocal) return 'Uploaded file';
-  if (official) return 'Official catalog';
+  if (official) return 'Third-party catalog';
   if (url) return themeUrlHostLabel(url);
   return 'Local theme';
 }

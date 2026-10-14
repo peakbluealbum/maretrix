@@ -116,7 +116,7 @@ function ClassicThemeSection({ onRequestCatalogEnable }: { onRequestCatalogEnabl
         <SettingTile
           title="Enable catalog"
           focusId="browse-remote-catalog"
-          description="Load remote themes and tweaks from the community catalog (hosted by the Sable project). You will be asked to confirm before any catalog content is fetched."
+          description="Load remote themes and tweaks from the community catalog. You will be asked to confirm before any catalog content is fetched."
           after={
             <Button
               variant="Secondary"
