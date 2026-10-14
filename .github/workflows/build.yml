@@ -1,0 +1,257 @@
+name: Build
+
+# Artifacts per run:
+#   macOS   Maretrix-<v>-macos-universal.dmg          (+ .app.tar.gz + .sig for the updater)
+#   Linux   .deb, .rpm, .AppImage                     x86_64 and aarch64
+#   Windows .msi, NSIS .exe
+#   Android .apk (FOSS flavour: no Google Play services, push via UnifiedPush)
+#   iOS     unsigned .ipa (manual dispatch only - see the ios job comment)
+#
+# Pushing a v* tag creates a GitHub Release and attaches everything, including
+# latest.json, which is what installed desktop apps poll.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: 'Comma-separated platforms to build: macos,linux,windows,android,ios'
+        required: true
+        default: 'macos,linux,windows'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  # Matches devEngines in package.json and the Dockerfile pin.
+  NODE_VERSION: '24.18.0'
+  RUST_VERSION: '1.97.1'
+
+jobs:
+  # Creates the release up front so parallel platform jobs attach to one release
+  # instead of racing to create it. Skipped for manual dispatch (no tag).
+  create-release:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create release if absent
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "${{ github.ref_name }}" >/dev/null 2>&1 || \
+            gh release create "${{ github.ref_name }}" \
+              --title "Maretrix ${{ github.ref_name }}" \
+              --generate-notes
+
+  macos:
+    name: macOS (universal)
+    needs: [create-release]
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && (github.event_name == 'push' || contains(github.event.inputs.targets, 'macos')) }}
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: pnpm install --frozen-lockfile
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # Ad-hoc signature. No paid Apple account: no notarization, so first
+          # launch needs right-click -> Open (or xattr -dr com.apple.quarantine).
+          APPLE_SIGNING_IDENTITY: '-'
+        with:
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('Maretrix {0}', github.ref_name) || '' }}
+          releaseDraft: false
+          includeUpdaterJson: true
+          # tauri.js normally injects these; tauri-action calls tauri directly, so
+          # pass them ourselves. Without `updater` the .sig files never appear.
+          args: --target universal-apple-darwin --features wry,updater -- --no-default-features
+
+  linux:
+    name: Linux (${{ matrix.label }})
+    needs: [create-release]
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && (github.event_name == 'push' || contains(github.event.inputs.targets, 'linux')) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: x86_64
+            runner: ubuntu-22.04
+            experimental: false
+          # arm64 hosted runners are only free on public repos; keep it advisory
+          # so an unavailable runner never fails the whole build.
+          - label: aarch64
+            runner: ubuntu-24.04-arm
+            experimental: true
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.experimental }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf libssl-dev libxdo-dev libfuse2 file
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: pnpm install --frozen-lockfile
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('Maretrix {0}', github.ref_name) || '' }}
+          releaseDraft: false
+          includeUpdaterJson: true
+          args: --features wry,updater -- --no-default-features
+
+  windows:
+    name: Windows
+    needs: [create-release]
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && (github.event_name == 'push' || contains(github.event.inputs.targets, 'windows')) }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: pnpm install --frozen-lockfile
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('Maretrix {0}', github.ref_name) || '' }}
+          releaseDraft: false
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: --features wry,updater -- --no-default-features
+
+  # FOSS flavour only: no Google Play services, no Firebase project. Push goes
+  # through UnifiedPush (a distributor app on the phone, e.g. ntfy), which is
+  # what the client's unifiedPushAppID config already points at.
+  # Advisory: Android is the lowest-priority target and this has not been
+  # exercised on a device yet, so it must not fail the release.
+  android:
+    name: Android (FOSS)
+    needs: [create-release]
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'android') }}
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    env:
+      MARETRIX_FOSS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - uses: android-actions/setup-android@v3
+      - name: Install NDK
+        run: |
+          sdkmanager --install "ndk;27.0.12077973" "cmake;3.22.1"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - name: Build APK
+        run: pnpm tauri:wry android build --apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maretrix-android-foss
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: warn
+
+  # Manual dispatch only. An unsigned IPA that the user re-signs with their own
+  # Apple ID: no paid account, so no APNs and no App Group capability. On iOS the
+  # installed PWA is strictly better (working web push, never expires), which is
+  # why this is not part of a tagged release.
+  ios:
+    name: iOS (unsigned, experiment)
+    needs: [create-release]
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'ios') }}
+    runs-on: macos-14
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: pnpm install --frozen-lockfile
+      - name: Fetch pinned LiveKit XCFrameworks (public, sha256-verified)
+        run: pnpm ios:frameworks
+      - name: Build app bundle (no signing identity)
+        env:
+          APPLE_SIGNING_IDENTITY: ''
+        run: pnpm tauri:wry ios build --target aarch64
+      - name: Package as unsigned .ipa
+        run: |
+          APP=$(find src-tauri/gen/apple/build -name '*.app' -maxdepth 4 | head -1)
+          test -n "$APP" || { echo "no .app produced"; exit 1; }
+          mkdir -p Payload && cp -R "$APP" Payload/
+          zip -qry maretrix-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maretrix-ios-unsigned
+          path: maretrix-unsigned.ipa
+          if-no-files-found: warn
