@@ -12,9 +12,9 @@ const batch = (batchId: string, items: ShareBatch['items']): ShareBatch => ({ ba
 
 describe('isShareDeepLink', () => {
   it('matches share deep links', () => {
-    expect(isShareDeepLink('sable://share')).toBe(true);
-    expect(isShareDeepLink('sable://share?batch=1')).toBe(true);
-    expect(isShareDeepLink('sable://sso-callback')).toBe(false);
+    expect(isShareDeepLink('maretrix://share')).toBe(true);
+    expect(isShareDeepLink('maretrix://share?batch=1')).toBe(true);
+    expect(isShareDeepLink('maretrix://sso-callback')).toBe(false);
     expect(isShareDeepLink('https://example.com')).toBe(false);
   });
 });

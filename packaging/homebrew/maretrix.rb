@@ -27,14 +27,14 @@ cask 'sable' do
     end
   end
 
-  uninstall quit: 'moe.sable.client'
+  uninstall quit: 'com.daiwascarlet.maretrix'
 
   zap trash: [
-    '~/Library/Application Support/moe.sable.client',
-    '~/Library/Caches/moe.sable.client',
-    '~/Library/HTTPStorages/moe.sable.client',
-    '~/Library/Preferences/moe.sable.client.plist',
-    '~/Library/Saved Application State/moe.sable.client.savedState',
-    '~/Library/WebKit/moe.sable.client'
+    '~/Library/Application Support/com.daiwascarlet.maretrix',
+    '~/Library/Caches/com.daiwascarlet.maretrix',
+    '~/Library/HTTPStorages/com.daiwascarlet.maretrix',
+    '~/Library/Preferences/com.daiwascarlet.maretrix.plist',
+    '~/Library/Saved Application State/com.daiwascarlet.maretrix.savedState',
+    '~/Library/WebKit/com.daiwascarlet.maretrix'
   ]
 end

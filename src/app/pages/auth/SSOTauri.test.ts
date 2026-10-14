@@ -79,7 +79,7 @@ describe('parseTauriSsoCallback', () => {
   });
 
   it('rejects a missing loginToken', () => {
-    expect(parseTauriSsoCallback('sable://login/lp/sso-callback?server=x')).toBeUndefined();
+    expect(parseTauriSsoCallback('maretrix://login/lp/sso-callback?server=x')).toBeUndefined();
   });
 });
 
@@ -100,30 +100,30 @@ describe('isTauriSsoCallbackTarget', () => {
 
 describe('parseTauriOidcCallback', () => {
   it('parses code and state from single-slash format', () => {
-    expect(parseTauriOidcCallback('moe.sable.app:/login?code=c1&state=s1')).toEqual({
+    expect(parseTauriOidcCallback('com.daiwascarlet.maretrix:/login?code=c1&state=s1')).toEqual({
       code: 'c1',
       state: 's1',
     });
   });
 
-  it('parses code and state from authority/hostname format (moe.sable.app://login)', () => {
-    expect(parseTauriOidcCallback('moe.sable.app://login?code=c1&state=s1')).toEqual({
+  it('parses code and state from authority/hostname format (com.daiwascarlet.maretrix://login)', () => {
+    expect(parseTauriOidcCallback('com.daiwascarlet.maretrix://login?code=c1&state=s1')).toEqual({
       code: 'c1',
       state: 's1',
     });
   });
 
   it('rejects the wrong path', () => {
-    expect(parseTauriOidcCallback('moe.sable.app:/other?code=c1&state=s1')).toBeUndefined();
-    expect(parseTauriOidcCallback('moe.sable.app://other?code=c1&state=s1')).toBeUndefined();
+    expect(parseTauriOidcCallback('com.daiwascarlet.maretrix:/other?code=c1&state=s1')).toBeUndefined();
+    expect(parseTauriOidcCallback('com.daiwascarlet.maretrix://other?code=c1&state=s1')).toBeUndefined();
   });
 
   it('rejects a different protocol', () => {
-    expect(parseTauriOidcCallback('sable://login?code=c1&state=s1')).toBeUndefined();
+    expect(parseTauriOidcCallback('maretrix://login?code=c1&state=s1')).toBeUndefined();
     expect(parseTauriOidcCallback('https://login?code=c1&state=s1')).toBeUndefined();
   });
 
   it('rejects an unrelated hostname with a login path', () => {
-    expect(parseTauriOidcCallback('moe.sable.app://evil/login?code=c1&state=s1')).toBeUndefined();
+    expect(parseTauriOidcCallback('com.daiwascarlet.maretrix://evil/login?code=c1&state=s1')).toBeUndefined();
   });
 });

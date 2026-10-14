@@ -47,14 +47,14 @@ fn main() {
     #[cfg(all(feature = "cef", target_os = "linux"))]
     {
         tauri_runtime_cef::configure(tauri_runtime_cef::CefConfig {
-            identifier: "moe.sable.client".into(),
+            identifier: "com.daiwascarlet.maretrix".into(),
             custom_schemes: vec![
                 "tauri".into(),
                 "ipc".into(),
                 "asset".into(),
                 "sable-media".into(),
             ],
-            deep_link_schemes: vec!["moe.sable.app".into(), "sable".into()],
+            deep_link_schemes: vec!["com.daiwascarlet.maretrix".into(), "maretrix".into()],
             command_line_args: {
                 let mut args = vec![
                     ("--disable-gpu-sandbox".into(), None),

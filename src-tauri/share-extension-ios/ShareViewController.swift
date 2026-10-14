@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 // Stages incoming shares into the app group container
 // (share_inbox/<batchId>/share.json + files), then opens the main app via
-// sable://share. UIApplication.open only compiles while
+// maretrix://share. UIApplication.open only compiles while
 // APPLICATION_EXTENSION_API_ONLY stays unset (see ios-project.yml).
 final class ShareViewController: UIViewController {
     private var processing = false
@@ -223,7 +223,7 @@ final class ShareViewController: UIViewController {
 
     // extensionContext.open never calls its completion for share extensions.
     private func openHostApp() {
-        guard let url = URL(string: "sable://share") else { return }
+        guard let url = URL(string: "maretrix://share") else { return }
         var responder: UIResponder? = self
         while let current = responder {
             if let application = current as? UIApplication {

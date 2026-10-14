@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:136631010081:android:fed0de8a33c934580b7460",
         "android_client_info": {
-          "package_name": "moe.sable.client"
+          "package_name": "com.daiwascarlet.maretrix"
         }
       },
       "oauth_client": [],
@@ -28,7 +28,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:136631010081:android:4cfbdacbecff60c00b7460",
         "android_client_info": {
-          "package_name": "moe.sable.client.nightly"
+          "package_name": "com.daiwascarlet.maretrix.nightly"
         }
       },
       "oauth_client": [],

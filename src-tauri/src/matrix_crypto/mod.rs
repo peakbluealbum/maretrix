@@ -88,7 +88,7 @@ pub struct EngineInfo {
 /// App Group that the iOS notification service extension shares with the app. An
 /// extension is a separate process and can only reach the store through this container.
 #[cfg(target_os = "ios")]
-pub const APP_GROUP: &str = "group.moe.sable.client";
+pub const APP_GROUP: &str = "group.com.daiwascarlet.maretrix";
 
 /// `None` until the App Group entitlement is present in the generated Xcode project,
 /// in which case the caller falls back to the app-local directory.

@@ -71,18 +71,18 @@
 
     <p class="warn">
       Rebuilt every night from the development branch, and it breaks. For everyday use, install the
-      stable release from <a href="https://flathub.org/apps/moe.sable.client">Flathub</a>.
+      stable release from <a href="https://flathub.org/apps/com.daiwascarlet.maretrix">Flathub</a>.
     </p>
 
     <h2>Install</h2>
     <pre><code>flatpak remote-add --if-not-exists sable-nightly @BASE_URL@/sable-nightly.flatpakrepo
-flatpak install sable-nightly moe.sable.client.Nightly</code></pre>
+flatpak install sable-nightly com.daiwascarlet.maretrix.Nightly</code></pre>
 
     <h2>Update</h2>
-    <pre><code>flatpak update moe.sable.client.Nightly</code></pre>
+    <pre><code>flatpak update com.daiwascarlet.maretrix.Nightly</code></pre>
 
     <h2>Uninstall</h2>
-    <pre><code>flatpak uninstall moe.sable.client.Nightly
+    <pre><code>flatpak uninstall com.daiwascarlet.maretrix.Nightly
 flatpak remote-delete sable-nightly</code></pre>
 
     <p>

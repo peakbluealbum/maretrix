@@ -111,10 +111,10 @@ targets:
         # these in when cargo reruns its build script, so a fresh `tauri ios
         # init` silently loses them unless they live here.
         CFBundleURLTypes:
-          - CFBundleURLName: sable
+          - CFBundleURLName: maretrix
             CFBundleURLSchemes:
-              - sable
-              - moe.sable.app
+              - maretrix
+              - com.daiwascarlet.maretrix
         {{~#each apple.plist-pairs}}
         {{this.key}}: {{this.value}}{{/each}}
     entitlements:

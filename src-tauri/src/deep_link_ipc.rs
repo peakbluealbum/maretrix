@@ -8,8 +8,8 @@ use std::{
     time::Duration,
 };
 
-// OIDC uses the private-use `moe.sable.app:/login?...` form; other flows `sable://`.
-const SCHEMES: &[&str] = &["moe.sable.app:", "sable:"];
+// OIDC uses the private-use `com.daiwascarlet.maretrix:/login?...` form; other flows `maretrix://`.
+const SCHEMES: &[&str] = &["com.daiwascarlet.maretrix:", "maretrix:"];
 const ACTIVATE: &str = "activate";
 
 fn is_deep_link(arg: &str) -> bool {
@@ -20,9 +20,9 @@ fn is_deep_link(arg: &str) -> bool {
 /// reboot); falls back to the temp dir.
 fn socket_path() -> PathBuf {
     if let Ok(dir) = std::env::var("XDG_RUNTIME_DIR") {
-        return PathBuf::from(dir).join("moe.sable.client-deeplink.sock");
+        return PathBuf::from(dir).join("com.daiwascarlet.maretrix-deeplink.sock");
     }
-    std::env::temp_dir().join("moe.sable.client-deeplink.sock")
+    std::env::temp_dir().join("com.daiwascarlet.maretrix-deeplink.sock")
 }
 
 fn collect_deep_link_urls_from_args<I, S>(args: I) -> Vec<String>
@@ -237,8 +237,8 @@ mod tests {
     #[test]
     fn collects_only_supported_deep_links() {
         assert_eq!(
-            collect_deep_link_urls_from_args(["sable", "--flag", "sable://room", "https://x"]),
-            ["sable://room"]
+            collect_deep_link_urls_from_args(["maretrix", "--flag", "maretrix://room", "https://x"]),
+            ["maretrix://room"]
         );
     }
 }

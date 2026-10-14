@@ -7,7 +7,7 @@ plugins {
     id("rust")
 }
 
-val fossBuild = providers.environmentVariable("SABLE_FOSS").orNull == "1"
+val fossBuild = providers.environmentVariable("MARETRIX_FOSS").orNull == "1"
 
 val tauriProperties = Properties().apply {
     val propFile = file("tauri.properties")
@@ -18,10 +18,10 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 36
-    namespace = "moe.sable.client"
+    namespace = "com.daiwascarlet.maretrix"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "moe.sable.client"
+        applicationId = "com.daiwascarlet.maretrix"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

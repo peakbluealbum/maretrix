@@ -26,7 +26,7 @@ if (!date) {
   process.exit(1);
 }
 
-const path = 'packaging/flatpak/moe.sable.client.metainfo.xml';
+const path = 'packaging/flatpak/com.daiwascarlet.maretrix.metainfo.xml';
 const metainfo = readFileSync(path, 'utf8');
 if (metainfo.includes(`<release version="${version}"`)) {
   console.log(`${path} already lists ${version}`);

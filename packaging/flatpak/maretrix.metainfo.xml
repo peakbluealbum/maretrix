@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>moe.sable.client.Nightly</id>
+  <id>com.daiwascarlet.maretrix</id>
 
-  <name>Sable Nightly</name>
+  <name>Sable</name>
   <summary>Chat over the Matrix network</summary>
 
-  <developer id="moe.sable">
+  <developer id="daiwascarlet">
     <name>Sable Maintainers</name>
   </developer>
 
@@ -34,12 +34,8 @@
 
   <description>
     <p>
-      Nightly builds of Sable, a Matrix client for desktop, with end-to-end
-      encrypted messaging, spaces, threads, and voice and video calls.
-    </p>
-    <p>
-      These builds come from the development branch and can break at any time.
-      Install the stable version from Flathub for everyday use.
+      Sable is a Matrix client for desktop, with end-to-end encrypted
+      messaging, spaces, threads, and voice and video calls.
     </p>
     <p>Features:</p>
     <ul>
@@ -50,7 +46,7 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">moe.sable.client.Nightly.desktop</launchable>
+  <launchable type="desktop-id">com.daiwascarlet.maretrix.desktop</launchable>
 
   <screenshots>
     <screenshot type="default">
@@ -60,11 +56,29 @@
   </screenshots>
 
   <releases>
-    <release version="@VERSION@" date="@DATE@">
-      <url type="details">https://github.com/SableClient/Sable/releases/tag/nightly</url>
-      <description>
-        <p>Rolling nightly build from the development branch</p>
-      </description>
+    <release version="1.22.6" date="2026-09-20">
+      <url type="details">https://github.com/SableClient/Sable/releases/tag/v1.22.6</url>
+    </release>
+    <release version="1.22.5" date="2026-09-20">
+      <url type="details">https://github.com/SableClient/Sable/releases/tag/v1.22.5</url>
+    </release>
+    <release version="1.22.4" date="2026-09-18">
+      <url type="details">https://github.com/SableClient/Sable/releases/tag/v1.22.4</url>
+    </release>
+    <release version="1.22.3" date="2026-09-18">
+      <url type="details">https://github.com/SableClient/Sable/releases/tag/v1.22.3</url>
+    </release>
+    <release version="1.22.2" date="2026-09-18">
+      <url type="details">https://github.com/SableClient/Sable/releases/tag/v1.22.2</url>
+    </release>
+    <release version="1.22.1" date="2026-09-17">
+      <url type="details">https://github.com/SableClient/Sable/releases/tag/v1.22.1</url>
+    </release>
+    <release version="1.22.0" date="2026-09-17">
+      <url type="details">https://github.com/SableClient/Sable/releases/tag/v1.22.0</url>
+    </release>
+    <release version="1.21.0" date="2026-08-17">
+      <url type="details">https://github.com/SableClient/Sable/releases/tag/v1.21.0</url>
     </release>
   </releases>
 </component>

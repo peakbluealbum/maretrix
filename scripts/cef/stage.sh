@@ -26,7 +26,7 @@ Icon=sable
 Terminal=false
 Categories=Network;InstantMessaging;Chat;
 StartupWMClass=sable
-MimeType=x-scheme-handler/sable;x-scheme-handler/moe.sable.app;
+MimeType=x-scheme-handler/maretrix;x-scheme-handler/com.daiwascarlet.maretrix;
 EOF
 
 for size in 32x32 64x64 128x128; do

@@ -20,7 +20,7 @@ const GITHUB_REPO = 'SableClient/Sable';
 const APK_NAME = `Sable-${version}-android-universal.apk`;
 const APK_URL = `https://github.com/${GITHUB_REPO}/releases/download/${tag}/${APK_NAME}`;
 const isNightly = tag === 'nightly';
-const appId = isNightly ? 'moe.sable.client.nightly' : 'moe.sable.client';
+const appId = isNightly ? 'com.daiwascarlet.maretrix.nightly' : 'com.daiwascarlet.maretrix';
 
 // Obtainium fills in every other setting from its own defaults on import.
 const additionalSettings = {

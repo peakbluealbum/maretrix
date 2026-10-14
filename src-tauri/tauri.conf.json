@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Maretrix",
   "version": "1.0.0",
-  "identifier": "moe.sable.client",
+  "identifier": "com.daiwascarlet.maretrix",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:8080",
@@ -81,15 +81,15 @@
     "deep-link": {
       "desktop": {
         "schemes": [
-          "sable",
-          "moe.sable.app"
+          "maretrix",
+          "com.daiwascarlet.maretrix"
         ]
       },
       "mobile": [
         {
           "scheme": [
-            "sable",
-            "moe.sable.app"
+            "maretrix",
+            "com.daiwascarlet.maretrix"
           ],
           "appLink": false
         }

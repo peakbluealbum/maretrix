@@ -1,4 +1,4 @@
-package moe.sable.client
+package com.daiwascarlet.maretrix
 
 import android.Manifest
 import android.app.NotificationChannel

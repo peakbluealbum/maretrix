@@ -6,7 +6,7 @@ export type ShareFileRef = {
   mime?: string | null;
 };
 
-export const isShareDeepLink = (url: string): boolean => url.startsWith('sable://share');
+export const isShareDeepLink = (url: string): boolean => url.startsWith('maretrix://share');
 
 export const mergeShareBatches = (prev: ShareBatch[], next: ShareBatch[]): ShareBatch[] => {
   const known = new Set(prev.map((batch) => batch.batchId));

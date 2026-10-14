@@ -105,7 +105,7 @@ describe('completeOidcLogin', () => {
     persistOauthContext('s1', {
       issuer: 'https://issuer.example',
       clientId: 'client',
-      redirectUri: 'moe.sable.app:/login',
+      redirectUri: 'com.daiwascarlet.maretrix:/login',
       deviceId: 'dev',
       codeVerifier: 'verifier',
       homeserverUrl: 'https://hs.example',
@@ -114,7 +114,7 @@ describe('completeOidcLogin', () => {
     await completeOidcLogin('code-1', 's1');
 
     expect(mocks.oauth2Context).toHaveBeenCalledWith(
-      expect.objectContaining({ redirectUri: 'moe.sable.app:/login' })
+      expect.objectContaining({ redirectUri: 'com.daiwascarlet.maretrix:/login' })
     );
   });
 });

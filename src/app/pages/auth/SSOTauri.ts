@@ -56,7 +56,7 @@ export const buildTauriSsoRedirectUrl = (server?: string): string => {
 
 export const TAURI_OIDC_CLIENT_URI = 'https://app.daiwascarlet.com';
 
-const TAURI_OIDC_PROTOCOL = 'moe.sable.app:';
+const TAURI_OIDC_PROTOCOL = 'com.daiwascarlet.maretrix:';
 const TAURI_OIDC_PATH = '/login';
 
 export const buildTauriOidcRedirectUrl = (): string => `${TAURI_OIDC_PROTOCOL}${TAURI_OIDC_PATH}`;
@@ -71,8 +71,8 @@ export const parseTauriOidcCallback = (
     const callbackUrl = new URL(rawUrl);
     if (callbackUrl.protocol !== TAURI_OIDC_PROTOCOL) return undefined;
 
-    // `moe.sable.app:/login?...`  → hostname === '', pathname === '/login'
-    // `moe.sable.app://login?...` → hostname === 'login', pathname === '/' or ''
+    // `com.daiwascarlet.maretrix:/login?...`  → hostname === '', pathname === '/login'
+    // `com.daiwascarlet.maretrix://login?...` → hostname === 'login', pathname === '/' or ''
     const hasLoginPath =
       callbackUrl.pathname === TAURI_OIDC_PATH || callbackUrl.pathname === `${TAURI_OIDC_PATH}/`;
 
