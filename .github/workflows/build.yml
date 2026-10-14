@@ -4,11 +4,16 @@ name: Build
 #   macOS   Maretrix-<v>-macos-universal.dmg          (+ .app.tar.gz + .sig for the updater)
 #   Linux   .deb, .rpm, .AppImage                     x86_64 and aarch64
 #   Windows .msi, NSIS .exe
-#   Android .apk (FOSS flavour: no Google Play services, push via UnifiedPush)
+#   Android .apk — FOSS flavour for now, see the android job comment
 #   iOS     unsigned .ipa (manual dispatch only - see the ios job comment)
 #
 # Pushing a v* tag creates a GitHub Release and attaches everything, including
 # latest.json, which is what installed desktop apps poll.
+#
+# A dispatch run (no tag) creates NO release, so every platform job also runs
+# actions/upload-artifact. tauri-action itself cannot upload artifacts — it only
+# attaches assets to a Release — so without those steps a test run builds the
+# bundles and throws them away.
 
 on:
   push:
@@ -98,6 +103,23 @@ jobs:
           # which fails client init. `geolocation` is dropped on purpose (it pulls
           # play-services-location); that matches scripts/tauri.js.
           args: --target universal-apple-darwin --features wry,updater,matrix-crypto -- --no-default-features
+      # tauri-action has NO artifact-upload input — it only attaches assets to a
+      # GitHub Release, and only when a tag is supplied. On workflow_dispatch
+      # tagName is empty, so without this step the bundles are built on the runner
+      # and thrown away. Verified: run 38537177008 produced a DMG and a valid .sig
+      # and still had zero artifacts.
+      # The .app directory itself is skipped: it is large and the .tar.gz already
+      # contains it.
+      - name: Upload bundles
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: maretrix-macos-universal
+          path: |
+            src-tauri/target/**/release/bundle/dmg/*.dmg
+            src-tauri/target/**/release/bundle/macos/*.tar.gz
+            src-tauri/target/**/release/bundle/macos/*.sig
+          if-no-files-found: error
 
   linux:
     name: Linux (${{ matrix.label }})
@@ -147,6 +169,19 @@ jobs:
           releaseDraft: false
           includeUpdaterJson: true
           args: --features wry,updater,matrix-crypto -- --no-default-features
+      # See the macOS job: tauri-action cannot upload artifacts, and a dispatch run
+      # has no tag to attach to. Without this, a test run leaves nothing behind.
+      - name: Upload bundles
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: maretrix-linux-${{ matrix.label }}
+          path: |
+            src-tauri/target/**/release/bundle/deb/*.deb
+            src-tauri/target/**/release/bundle/rpm/*.rpm
+            src-tauri/target/**/release/bundle/appimage/*
+            src-tauri/target/**/release/bundle/**/*.sig
+          if-no-files-found: error
 
   windows:
     name: Windows
@@ -178,6 +213,18 @@ jobs:
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: --features wry,updater,matrix-crypto -- --no-default-features
+      # See the macOS job. Windows only runs on tag pushes today, so this is
+      # mostly future-proofing — but a tag run's assets failing to attach would
+      # otherwise leave nothing to download.
+      - name: Upload bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: maretrix-windows
+          path: |
+            src-tauri/target/**/release/bundle/msi/*.msi
+            src-tauri/target/**/release/bundle/nsis/*.exe
+            src-tauri/target/**/release/bundle/**/*.sig
+          if-no-files-found: error
 
   # Optional: CEF (Chromium) runtime instead of WebKitGTK on Linux. NOT part of the
   # default target set and not part of a tagged release — CEF bundles a whole
@@ -229,13 +276,24 @@ jobs:
           path: maretrix-cef-x86_64
           if-no-files-found: warn
 
-  # FOSS flavour only: no Google Play services, no Firebase project. Push goes
-  # through UnifiedPush (a distributor app on the phone, e.g. ntfy), which is
-  # what the client's unifiedPushAppID config already points at.
-  # Advisory: Android is the lowest-priority target and this has not been
-  # exercised on a device yet, so it must not fail the release.
+  # INTERIM — FOSS flavour, pending Firebase credentials.
+  #
+  # The destination is the FCM flavour: the client already ships native FCM
+  # support (src/app/notifications/NativePush.ts) and sygnal on VPS2 already has
+  # the `gcmpushkin` module compiled in, so only configuration is missing. Until
+  # a Firebase project exists there is no google-services.json, and a gms-flavour
+  # build without one links Firebase but cannot register a token — push silently
+  # does nothing. A FOSS build at least has a working transport for anyone with a
+  # UnifiedPush distributor, so it is the honest interim state.
+  #
+  # Flipping to FCM later is a one-line change here (drop MARETRIX_FOSS and the
+  # `--apk` args stay the same) plus adding the secret. See the android job's own
+  # note and PENDING Category Q #56 for the full scope.
+  #
+  # Advisory: no Android device has been tested against this, so it must not fail
+  # the release.
   android:
-    name: Android (FOSS)
+    name: Android (FOSS — interim, FCM pending)
     needs: [create-release]
     if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'android') }}
     runs-on: ubuntu-22.04
