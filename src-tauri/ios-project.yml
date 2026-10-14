@@ -60,7 +60,9 @@ targets:
         # APPLICATION_EXTENSION_API_ONLY must stay unset: NO fails Xcode's
         # validation, YES breaks UIApplication.open in ShareViewController.
         SKIP_INSTALL: YES
-        DEVELOPMENT_TEAM: PK66NJM372
+        {{#if apple.development-team}}
+        DEVELOPMENT_TEAM: {{apple.development-team}}
+        {{/if}}
   {{app.name}}_iOS:
     type: application
     platform: iOS

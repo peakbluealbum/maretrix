@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       targets:
-        description: 'Comma-separated platforms to build: macos,linux,windows,android,ios'
+        description: 'Comma-separated platforms to build: macos,linux,linux-cef,windows,android,ios'
         required: true
         default: 'macos,linux,windows'
 
@@ -92,7 +92,12 @@ jobs:
           includeUpdaterJson: true
           # tauri.js normally injects these; tauri-action calls tauri directly, so
           # pass them ourselves. Without `updater` the .sig files never appear.
-          args: --target universal-apple-darwin --features wry,updater -- --no-default-features
+          # `matrix-crypto` is NOT optional here: scripts/tauri.js always appends
+          # it, and without it the engine_* commands are never registered while
+          # src/client/initMatrix.ts still calls engine_store_exists() under Tauri,
+          # which fails client init. `geolocation` is dropped on purpose (it pulls
+          # play-services-location); that matches scripts/tauri.js.
+          args: --target universal-apple-darwin --features wry,updater,matrix-crypto -- --no-default-features
 
   linux:
     name: Linux (${{ matrix.label }})
@@ -141,7 +146,7 @@ jobs:
           releaseName: ${{ github.ref_type == 'tag' && format('Maretrix {0}', github.ref_name) || '' }}
           releaseDraft: false
           includeUpdaterJson: true
-          args: --features wry,updater -- --no-default-features
+          args: --features wry,updater,matrix-crypto -- --no-default-features
 
   windows:
     name: Windows
@@ -172,7 +177,56 @@ jobs:
           releaseDraft: false
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
-          args: --features wry,updater -- --no-default-features
+          args: --features wry,updater,matrix-crypto -- --no-default-features
+
+  # Optional: CEF (Chromium) runtime instead of WebKitGTK on Linux. NOT part of the
+  # default target set and not part of a tagged release — CEF bundles a whole
+  # Chromium, so the binary is far larger. scripts/tauri.js forces --no-bundle for
+  # `cef build`, so this uploads the raw executable rather than a .deb/.AppImage.
+  # Advisory: the CEF path has not been exercised in CI yet.
+  linux-cef:
+    name: Linux (CEF, optional)
+    needs: [create-release]
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'linux-cef') }}
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
+            patchelf libssl-dev libxdo-dev file \
+            libnss3 libnspr4 libgbm1 libdrm2 libxkbcommon0 libasound2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: linux-cef
+      - run: pnpm install --frozen-lockfile
+      # --no-updater: a --no-bundle build cannot emit updater artefacts anyway, and
+      # without it the bundler would demand TAURI_SIGNING_PRIVATE_KEY.
+      - name: Build (CEF runtime, no bundle)
+        run: pnpm tauri:cef build --no-updater
+      - name: Stage binary
+        run: |
+          BIN=$(find src-tauri/target/release -maxdepth 1 -type f -perm -u+x \
+                \( -name 'maretrix' -o -name 'sable' \) | head -1)
+          test -n "$BIN" || { echo "no binary produced"; exit 1; }
+          cp "$BIN" maretrix-cef-x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maretrix-linux-x86_64-cef
+          path: maretrix-cef-x86_64
+          if-no-files-found: warn
 
   # FOSS flavour only: no Google Play services, no Firebase project. Push goes
   # through UnifiedPush (a distributor app on the phone, e.g. ntfy), which is

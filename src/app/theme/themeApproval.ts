@@ -7,8 +7,10 @@ function trimmedPrefixes(prefixes: string[] | undefined): readonly string[] {
 }
 
 /**
- * HTTPS URLs permitted as "catalog-official" for badges and banners.
- * - Undefined or empty ⇒ none (every matching URL is unofficial / third-party for UI).
+ * HTTPS URLs permitted as "approved catalog" hosts, for badges and banners only.
+ * "Approved" means the URL matches a configured host prefix — nothing more. The
+ * default catalog is a third-party repository we do not own or maintain.
+ * - Undefined or empty ⇒ none (every matching URL is third-party for UI).
  * - Include {@link APPROVED_THEME_PREFIX_ALLOW_ALL} ⇒ any https URL counts as permitted.
  */
 export function isApprovedCatalogHostUrl(

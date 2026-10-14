@@ -4,3 +4,7 @@
 /tauri.build.gradle.kts
 /proguard-tauri.pro
 /tauri.properties
+
+# Google/Firebase config: belongs to someone else's Firebase project, and only
+# used by the non-FOSS Android flavour. Inert in the FOSS build.
+google-services.json
