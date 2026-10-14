@@ -320,9 +320,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-      - uses: android-actions/setup-android@v3
+      # v3 defaults to `packages: 'tools platform-tools'`, and Google stopped serving the
+      # `tools` package — the action dies with "Failed to find package 'tools'" before any
+      # build step runs. v4 dropped it from the default; `platform-tools` is requested
+      # explicitly rather than relying on that. Verified against run 38568035392.
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
       - name: Install NDK
         run: |
+          # --licenses first: the NDK/CMake packages are behind the same licence gate, and
+          # sdkmanager prompts interactively without this.
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager --install "ndk;27.0.12077973" "cmake;3.22.1"
           echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
       - run: pnpm install --frozen-lockfile
