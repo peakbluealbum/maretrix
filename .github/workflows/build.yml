@@ -4,7 +4,7 @@ name: Build
 #   macOS   Maretrix-<v>-macos-universal.dmg          (+ .app.tar.gz + .sig for the updater)
 #   Linux   .deb, .rpm, .AppImage                     x86_64 and aarch64
 #   Windows .msi, NSIS .exe
-#   Android .apk — FOSS flavour for now, see the android job comment
+#   Android .apk — FCM when credentials exist, FOSS otherwise; see the android job
 #   iOS     unsigned .ipa (manual dispatch only - see the ios job comment)
 #
 # Pushing a v* tag creates a GitHub Release and attaches everything, including
@@ -277,30 +277,31 @@ jobs:
           path: maretrix-cef-x86_64
           if-no-files-found: warn
 
-  # INTERIM — FOSS flavour, pending Firebase credentials.
+  # Android is opt-in (the targets input must name 'android'), and no device has
+  # ever been tested against this, so it must not fail the release.
   #
-  # The destination is the FCM flavour: the client already ships native FCM
-  # support (src/app/notifications/NativePush.ts) and sygnal on VPS2 already has
-  # the `gcmpushkin` module compiled in, so only configuration is missing. Until
-  # a Firebase project exists there is no google-services.json, and a gms-flavour
-  # build without one links Firebase but cannot register a token — push silently
-  # does nothing. A FOSS build at least has a working transport for anyone with a
-  # UnifiedPush distributor, so it is the honest interim state.
+  # Push transport: FCM. The client already ships native FCM support
+  # (src/app/features/settings/notifications/NativePushNotifications.ts) and
+  # sygnal on VPS2 already has `gcmpushkin` compiled in, so credentials are the
+  # only thing missing. Supply them and this job builds the FCM APK; supply
+  # nothing and the same command builds the FOSS one.
   #
-  # Flipping to FCM later is a one-line change here (drop MARETRIX_FOSS and the
-  # `--apk` args stay the same) plus adding the secret. See the android job's own
-  # note and PENDING Category Q #56 for the full scope.
+  # The flavour is chosen in src-tauri/gen/android/app/build.gradle.kts, not
+  # here: google-services.json present -> gms, absent -> foss. That keeps the
+  # build honest, because a gms build without google-services.json links Firebase
+  # and then cannot register a token — push that silently does nothing, which is
+  # worse than an honest FOSS build.
   #
-  # Advisory: no Android device has been tested against this, so it must not fail
-  # the release.
+  # To switch FCM on: create the Firebase project, base64 its google-services.json
+  # into the GOOGLE_SERVICES_JSON repository secret. The step below decodes it into
+  # place. The server side additionally needs the matching service account on VPS2;
+  # PENDING Category Q #56 has the full scope.
   android:
-    name: Android (FOSS — interim, FCM pending)
+    name: Android
     needs: [create-release]
     if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'android') }}
     runs-on: ubuntu-22.04
     continue-on-error: true
-    env:
-      MARETRIX_FOSS: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -325,11 +326,24 @@ jobs:
           sdkmanager --install "ndk;27.0.12077973" "cmake;3.22.1"
           echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
       - run: pnpm install --frozen-lockfile
+      # Absent secret => nothing is written => gradle picks the FOSS flavour.
+      # The value is passed via env rather than interpolated into the script so
+      # that the secret's characters can never be read as shell syntax.
+      - name: Materialise google-services.json (FCM)
+        env:
+          GS: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GS" ]; then
+            printf '%s' "$GS" | base64 -d > src-tauri/gen/android/app/google-services.json
+            python3 -c "import json,sys;d=json.load(open('src-tauri/gen/android/app/google-services.json'));print('FCM project:',d['project_info']['project_id'],'| package:',d['client'][0]['client_info']['android_client_info']['package_name'])"
+          else
+            echo "No GOOGLE_SERVICES_JSON secret — building the FOSS flavour."
+          fi
       - name: Build APK
         run: pnpm tauri:wry android build --apk
       - uses: actions/upload-artifact@v4
         with:
-          name: maretrix-android-foss
+          name: maretrix-android
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: warn
 

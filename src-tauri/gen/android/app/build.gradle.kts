@@ -7,7 +7,18 @@ plugins {
     id("rust")
 }
 
-val fossBuild = providers.environmentVariable("MARETRIX_FOSS").orNull == "1"
+// Which push transport this build carries. FOSS is the fallback, gms the goal.
+//
+// MARETRIX_FOSS=1 still forces the FOSS build, but the gms flavour is selected
+// only when google-services.json is actually present: a gms build without it
+// links Firebase yet can never register a token, so push fails silently. That
+// failure is worse than an honest FOSS build, so the absence of the config file
+// is treated as "no FCM here" and the FOSS flavour is used instead. Drop the
+// google-services.json in place (CI does this from a secret) and the same
+// command produces the FCM build, with no workflow change needed.
+val hasFirebaseConfig = file("google-services.json").exists()
+val fossBuild =
+    providers.environmentVariable("MARETRIX_FOSS").orNull == "1" || !hasFirebaseConfig
 
 val tauriProperties = Properties().apply {
     val propFile = file("tauri.properties")
