@@ -218,9 +218,10 @@ jobs:
         run: pnpm tauri:cef build --no-updater
       - name: Stage binary
         run: |
+          # Cargo package is `sable`; productName is `Maretrix`. Match either, case-insensitively.
           BIN=$(find src-tauri/target/release -maxdepth 1 -type f -perm -u+x \
-                \( -name 'maretrix' -o -name 'sable' \) | head -1)
-          test -n "$BIN" || { echo "no binary produced"; exit 1; }
+                \( -iname 'maretrix' -o -iname 'sable' \) | head -1)
+          test -n "$BIN" || { echo "no binary produced"; ls -la src-tauri/target/release; exit 1; }
           cp "$BIN" maretrix-cef-x86_64
       - uses: actions/upload-artifact@v4
         with:
