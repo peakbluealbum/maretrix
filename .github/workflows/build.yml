@@ -56,7 +56,13 @@ jobs:
     name: macOS (universal)
     needs: [create-release]
     if: ${{ !cancelled() && needs.create-release.result != 'failure' && (github.event_name == 'push' || contains(github.event.inputs.targets, 'macos')) }}
-    runs-on: macos-14
+  # macos-15, NOT macos-14: the pinned tauri-plugin-notifications rev uses typed
+  # throws (`func f() throws(FFIResult)`), a Swift 6.0 / Xcode 16 feature. The
+  # macos-14 image ships Xcode 15.x, whose compiler cannot parse it and fails the
+  # whole build with "consecutive declarations on a line must be separated by ';'"
+  # in NotificationPlugin.swift — a confusing error that points at a dependency,
+  # not at this repo.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -221,7 +227,7 @@ jobs:
     name: iOS (unsigned, experiment)
     needs: [create-release]
     if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'ios') }}
-    runs-on: macos-14
+    runs-on: macos-15
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
