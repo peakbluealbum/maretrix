@@ -37,7 +37,7 @@ class CallForegroundService : Service() {
         NotificationCompat.Builder(this, CHANNEL_ID)
           .setSmallIcon(R.mipmap.ic_notification)
           .setContentTitle("Call in progress")
-          .setContentText("Sable is using your microphone")
+          .setContentText("Maretrix is using your microphone")
           .setCategory(NotificationCompat.CATEGORY_CALL)
           .setOngoing(true)
           .setOnlyAlertOnce(true)
@@ -70,7 +70,7 @@ class CallForegroundService : Service() {
   private fun acquireWakeLock() {
     if (wakeLock?.isHeld == true) return
     val pm = getSystemService(POWER_SERVICE) as PowerManager
-    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Sable:CallForeground")
+    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Maretrix:CallForeground")
     wakeLock?.acquire(WAKE_LOCK_TIMEOUT_MS)
   }
 

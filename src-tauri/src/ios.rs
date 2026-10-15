@@ -200,7 +200,7 @@ mod callkit {
                 CXHandle::initWithType_value(
                     allocated,
                     CXHandleType::Generic,
-                    &NSString::from_str("Sable"),
+                    &NSString::from_str("Maretrix"),
                 )
             };
             let action = unsafe {
@@ -409,7 +409,7 @@ fn photo_access_allowed(status: PHAuthorizationStatus) -> bool {
 
 fn photo_authorization_error(status: PHAuthorizationStatus) -> String {
     if status == PHAuthorizationStatus::Denied {
-        "permission denied: allow photo access in Settings > Apps > Sable > Photos".to_string()
+        "permission denied: allow photo access in Settings > Apps > Maretrix > Photos".to_string()
     } else if status == PHAuthorizationStatus::Restricted {
         "saving to Photos is blocked by device management or parental controls".to_string()
     } else {

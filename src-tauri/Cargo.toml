@@ -1,10 +1,10 @@
 [package]
-name = "sable"
+name = "maretrix"
 version = "1.0.0"
 description = "Yet another matrix client but better"
-authors = ["Sable Maintainers"]
+authors = ["Maretrix maintainers"]
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/SableClient/Sable"
+repository = "https://github.com/peakbluealbum/maretrix"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

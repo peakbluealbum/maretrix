@@ -9,6 +9,10 @@ v1 (Cinny/React) codebase before the Sable v2 (Rust + SvelteKit) rewrite.
 This is a personal fork, published to satisfy AGPL section 13. There is no support and pull requests are
 not accepted.
 
+> **Renaming note:** the fork deliberately keeps the `moe.sable.*` Matrix namespace and the
+> `--sable-*` CSS theme variables unchanged. See [`docs/upstream-contracts.md`](docs/upstream-contracts.md)
+> before "cleaning up" any remaining `sable` reference.
+
 ## What this fork changes
 
 - **Branding** — name, logo, icons and favicons replaced; upstream's `TRADEMARKS.md` permits this.

@@ -180,18 +180,18 @@ fn main() {
             }
 
             let msg = match permission_kinds.as_slice() {
-                [PermissionKind::Microphone] => "Sable wants to access your microphone.",
-                [PermissionKind::Camera] => "Sable wants to access your camera.",
+                [PermissionKind::Microphone] => "Maretrix wants to access your microphone.",
+                [PermissionKind::Camera] => "Maretrix wants to access your camera.",
                 [PermissionKind::ScreenCapture] | [PermissionKind::CapturedSurfaceControl] => {
-                    "Sable wants to share your screen."
+                    "Maretrix wants to share your screen."
                 }
-                [PermissionKind::Geolocation] => "Sable wants to access your location.",
+                [PermissionKind::Geolocation] => "Maretrix wants to access your location.",
                 _ if permission_kinds.contains(&PermissionKind::Microphone)
                     && permission_kinds.contains(&PermissionKind::Camera) =>
                 {
-                    "Sable wants to access your microphone and camera."
+                    "Maretrix wants to access your microphone and camera."
                 }
-                _ => "Sable wants to access media devices.",
+                _ => "Maretrix wants to access media devices.",
             };
 
             // Defer the CEF callback and ask the user via a native GTK dialog.

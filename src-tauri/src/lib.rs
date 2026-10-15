@@ -40,7 +40,7 @@ fn is_internal_navigation(url: &tauri::Url, dev: bool) -> bool {
 
 #[cfg(desktop)]
 pub(crate) fn main_window_title(app: &AppHandle<crate::BrowserEngine>) -> &str {
-    app.config().product_name.as_deref().unwrap_or("Sable")
+    app.config().product_name.as_deref().unwrap_or("Maretrix")
 }
 
 #[cfg(all(
@@ -253,20 +253,20 @@ pub fn show_or_create_main_window(app: &AppHandle<crate::BrowserEngine>) -> taur
                         .downcast_ref::<UserMediaPermissionRequest>()
                         .is_some()
                     {
-                        Some(("media", "Allow Sable to use your camera and microphone?"))
+                        Some(("media", "Allow Maretrix to use your camera and microphone?"))
                     } else if request
                         .downcast_ref::<NotificationPermissionRequest>()
                         .is_some()
                     {
                         Some((
                             "notifications",
-                            "Allow Sable to show desktop notifications?",
+                            "Allow Maretrix to show desktop notifications?",
                         ))
                     } else if request
                         .downcast_ref::<GeolocationPermissionRequest>()
                         .is_some()
                     {
-                        Some(("geolocation", "Allow Sable to access your location?"))
+                        Some(("geolocation", "Allow Maretrix to access your location?"))
                     } else {
                         None
                     };

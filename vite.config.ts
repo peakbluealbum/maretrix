@@ -73,7 +73,7 @@ const isReleaseTag = (() => {
   }
 })();
 
-const baseProductName = typeof appConfig.productName === 'string' ? appConfig.productName : 'Sable';
+const baseProductName = typeof appConfig.productName === 'string' ? appConfig.productName : 'Maretrix';
 
 const callEmbeddedDir = 'node_modules/@sableclient/sable-call-embedded/dist';
 

@@ -13,7 +13,7 @@ use zip::{CompressionMethod, ZipWriter};
 const MAX_LOG_FILES: usize = 6;
 
 pub(crate) fn system_info(version: &str, os: &str, architecture: &str) -> String {
-    format!("Sable diagnostics\nApp version: {version}\nOS: {os}\nArchitecture: {architecture}\n")
+    format!("Maretrix diagnostics\nApp version: {version}\nOS: {os}\nArchitecture: {architecture}\n")
 }
 
 fn sensitive_paths() -> Vec<PathBuf> {
@@ -343,7 +343,7 @@ mod tests {
             .expect("system info should be readable");
         assert_eq!(
             info,
-            "Sable diagnostics\nApp version: 1.2.3\nOS: android\nArchitecture: aarch64\n"
+            "Maretrix diagnostics\nApp version: 1.2.3\nOS: android\nArchitecture: aarch64\n"
         );
         assert!(archive.by_name("logs/frontend-debug-logs.json").is_err());
     }
@@ -356,7 +356,7 @@ mod tests {
             "headers": { "authorization": "header-secret" }
         }]))
         .expect("frontend logs should serialize");
-        let bytes = build_archive(None, "Sable diagnostics\n", Some(&logs))
+        let bytes = build_archive(None, "Maretrix diagnostics\n", Some(&logs))
             .expect("diagnostics archive should be created");
         let mut archive =
             zip::ZipArchive::new(std::io::Cursor::new(bytes)).expect("archive should be valid ZIP");
@@ -381,7 +381,7 @@ mod tests {
             "token=native-token https://example.org/path\n",
         )
         .expect("native log should be writable");
-        create_archive(&archive_path, &directory.0, "Sable diagnostics\n", None)
+        create_archive(&archive_path, &directory.0, "Maretrix diagnostics\n", None)
             .expect("diagnostics archive should be created");
         let mut archive =
             zip::ZipArchive::new(File::open(archive_path).expect("archive should open"))

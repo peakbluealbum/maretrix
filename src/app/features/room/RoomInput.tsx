@@ -1036,7 +1036,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
         const extension = getSupportedAudioExtension(payload.audioCodec);
         const file = new File(
           [payload.audioBlob],
-          `sable-audio-message-${Date.now()}.${extension}`,
+          `maretrix-audio-message-${Date.now()}.${extension}`,
           {
             type: payload.audioCodec,
           }
