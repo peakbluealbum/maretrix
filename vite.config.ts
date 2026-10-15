@@ -123,10 +123,6 @@ const copyFiles = {
       dest: 'public/',
       rename: { stripBase: 1 },
     },
-    {
-      src: 'wrangler.json',
-      dest: '',
-    },
   ],
 };
 

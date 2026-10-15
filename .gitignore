@@ -10,11 +10,6 @@ devAssets
 *.code-workspace
 .env
 
-.wrangler
-.dev.vars*
-.terraform/
-*.tfstate
-*.tfstate.*
 *.tfvars
 !*.tfvars.example
 *.tfbackend
@@ -62,18 +57,11 @@ src-tauri/gen/apple/*
 /tests/e2e/.auth
 
 # Nix things
-## nix build output
-result
-## direnv config + local state
 .envrc
-.direnv
 ## auto-generated pre-commit config
 .pre-commit-config.yaml
 src-tauri/icons/generated/
 
-# Rendered by render-flatpak-nightly.mjs
-packaging/flatpak/nightly/maretrix.Nightly.yml
-packaging/flatpak/nightly/maretrix.Nightly.metainfo.xml
 
 # deployment secrets (never commit)
 config.secrets.json
