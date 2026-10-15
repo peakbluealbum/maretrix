@@ -348,6 +348,28 @@ jobs:
           else
             echo "No GOOGLE_SERVICES_JSON secret — building the FOSS flavour."
           fi
+      # Release signing. Without this the build falls back to Gradle's debug key,
+      # which every runner regenerates — so each APK would carry a different
+      # signature and users could never update in place. The keystore and its
+      # password exist only as repository secrets. The gradle signingConfig reads
+      # a single `password` key for both the store and the key, hence one value.
+      - name: Materialise release keystore
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            printf '%s' "$KS_B64" | base64 -d > /tmp/maretrix-release.jks
+            {
+              echo "storeFile=/tmp/maretrix-release.jks"
+              echo "keyAlias=$KS_ALIAS"
+              echo "password=$KS_PW"
+            } > src-tauri/gen/android/keystore.properties
+            echo "Release keystore materialised — APK will be release-signed."
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 absent — APK falls back to the debug key."
+          fi
       - name: Build APK
         run: pnpm tauri:wry android build --apk
       - uses: actions/upload-artifact@v4
