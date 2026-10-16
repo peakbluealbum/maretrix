@@ -416,7 +416,7 @@ jobs:
     name: iOS (unsigned, experiment)
     needs: [create-release]
     if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'ios') }}
-    runs-on: macos-15
+    runs-on: macos-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
