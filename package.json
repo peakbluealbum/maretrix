@@ -37,8 +37,6 @@
     "knip": "knip",
     "tunnel": "cloudflared tunnel --url http://localhost:8080",
     "setup:tauri-icons": "node scripts/icons/symlink.js",
-    "generate:app-icons:android": "node scripts/icons/prepare-launcher-icon.js && node node_modules/tauri-plugin-app-icon-api/scripts/generate-android.mjs --config src-tauri/app-icons.json && pnpm setup:tauri-icons --write --force",
-    "generate:app-icons:ios": "node scripts/icons/prepare-launcher-icon.js && node node_modules/tauri-plugin-app-icon-api/scripts/generate-ios.mjs --config src-tauri/app-icons.json && pnpm setup:tauri-icons --write --force",
     "lint:normalize-imports": "node scripts/normalize-imports.js"
   },
   "dependencies": {
@@ -164,7 +162,6 @@
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",
     "oxlint-tsgolint": "^7.0.2001",
-    "tauri-plugin-app-icon-api": "github:SableClient/tauri-plugin-app-icon#bab80ae17f6d018702e472c539d0f02eba480c21",
     "testcontainers": "^12.1.0",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",

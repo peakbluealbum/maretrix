@@ -1,6 +1,6 @@
 {
   "build": {
-    "beforeDevCommand": "pnpm generate:app-icons:android && pnpm dev",
-    "beforeBuildCommand": "pnpm generate:app-icons:android && pnpm build"
+    "beforeDevCommand": "pnpm setup:tauri-icons --write --force && pnpm dev",
+    "beforeBuildCommand": "pnpm setup:tauri-icons --write --force && pnpm build"
   }
 }

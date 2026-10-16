@@ -1,6 +1,6 @@
 {
   "build": {
-    "beforeDevCommand": "pnpm generate:app-icons:ios && pnpm dev",
-    "beforeBuildCommand": "pnpm generate:app-icons:ios && pnpm build"
+    "beforeDevCommand": "pnpm setup:tauri-icons --write --force && pnpm dev",
+    "beforeBuildCommand": "pnpm setup:tauri-icons --write --force && pnpm build"
   }
 }
