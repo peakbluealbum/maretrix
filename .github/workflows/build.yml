@@ -3,7 +3,7 @@ name: Build
 # Artifacts per run:
 #   macOS   Maretrix-<v>-macos-universal.dmg          (+ .app.tar.gz + .sig for the updater)
 #   Linux   .deb, .rpm, .AppImage                     x86_64 and aarch64
-#   Windows .msi, NSIS .exe
+#   Windows .msi, NSIS .exe — dispatch-only and currently BROKEN; see the windows job
 #   Android .apk — FCM when credentials exist, FOSS otherwise; see the android job
 #   iOS     unsigned .ipa (manual dispatch only - see the ios job comment)
 #
@@ -23,7 +23,9 @@ on:
       targets:
         description: 'Comma-separated platforms to build: macos,linux,linux-cef,windows,android,ios'
         required: true
-        default: 'macos,linux,windows'
+        # `windows` is deliberately NOT in the default: its build is currently
+        # broken (see the windows job) and it must never be started by accident.
+        default: 'macos,linux'
 
 permissions:
   contents: write
@@ -184,10 +186,33 @@ jobs:
             src-tauri/target/**/release/bundle/**/*.sig
           if-no-files-found: error
 
+  # DISPATCH-ONLY AND CURRENTLY BROKEN — do not add `windows` to a tagged
+  # release or the dispatch default. The build fails to compile:
+  #
+  #   error[E0425]: cannot find function
+  #     `default_window_icon_from_app_icon_resource` in module `::tauri::image`
+  #     --> src\lib.rs:534  (.build(tauri::generate_context!()))
+  #
+  # Root cause: a version mismatch in src-tauri/Cargo.toml. `tauri` is pinned to
+  # 2.11.5, but `tauri-codegen` is pinned to 2.7.0 in [build-dependencies] (added
+  # for reproducible native builds). tauri-codegen 2.7.0 is the codegen that
+  # ships with tauri 2.12.0: on Windows targets it emits a call to
+  # `tauri::image::default_window_icon_from_app_icon_resource()`, a function that
+  # was added to the `tauri` crate in 2.12.0 and does not exist in 2.11.5.
+  # macOS/Linux/Android take the Unix code path (CachedIcon) and never hit it.
+  #
+  # Fixing it means aligning the pair, which is NOT a one-liner:
+  #   (a) pin tauri-codegen back to 2.6.3 to match tauri 2.11.5 — loses the
+  #       reproducible-build sorting, or
+  #   (b) bump the whole tauri family (tauri, tauri-build, tauri-macros,
+  #       tauri-runtime, tauri-runtime-wry) 2.11.5 -> 2.12.x — touches the
+  #       toolchain that currently builds green on three other platforms.
+  # Either way Cargo.lock must be regenerated (cargo update -p tauri-codegen).
+  # Windows was never actually green: earlier "success" runs skipped the job.
   windows:
-    name: Windows
+    name: Windows (dispatch-only; currently broken — see comment)
     needs: [create-release]
-    if: ${{ !cancelled() && needs.create-release.result != 'failure' && (github.event_name == 'push' || contains(github.event.inputs.targets, 'windows')) }}
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'windows') }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -214,9 +239,8 @@ jobs:
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: --features wry,updater,matrix-crypto -- --no-default-features
-      # See the macOS job. Windows only runs on tag pushes today, so this is
-      # mostly future-proofing — but a tag run's assets failing to attach would
-      # otherwise leave nothing to download.
+      # See the macOS job. Kept for the day the codegen/tauri mismatch above is
+      # fixed and this job is re-enabled.
       - name: Upload bundles
         uses: actions/upload-artifact@v4
         with:
@@ -405,6 +429,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Fetch pinned LiveKit XCFrameworks (public, sha256-verified)
         run: pnpm ios:frameworks
+      # src-tauri/gen/apple/* is gitignored, so the Xcode project does not exist
+      # on a fresh checkout. `tauri ios build` refuses to run without it:
+      #   "Xcode project directory .../src-tauri/gen/apple doesn't exist.
+      #    Please run `tauri ios init` and try again."
+      # `ios init` shells out to `pod install`, so CocoaPods must be on PATH
+      # (the macos-15 image ships it; install defensively if it ever doesn't).
+      - name: Ensure CocoaPods
+        run: command -v pod >/dev/null 2>&1 || brew install cocoapods
+      - name: Init iOS Xcode project
+        run: pnpm tauri ios init --ci
       - name: Build app bundle (no signing identity)
         env:
           APPLE_SIGNING_IDENTITY: ''
