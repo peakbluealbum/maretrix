@@ -116,7 +116,6 @@ export interface Settings {
   arboriumDarkTheme?: string;
   saturationLevel?: number;
   uniformIcons: boolean;
-  appIconId?: string;
   twitterEmoji: boolean;
   pageZoom: number;
   hideActivity: boolean;
@@ -307,7 +306,6 @@ export const defaultSettings: Settings = {
   arboriumDarkTheme: 'dracula',
   saturationLevel: 100,
   uniformIcons: false,
-  appIconId: undefined,
   twitterEmoji: true,
   pageZoom: 100,
   hideActivity: false,

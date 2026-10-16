@@ -6919,7 +6919,6 @@ dependencies = [
  "tauri-build",
  "tauri-codegen",
  "tauri-plugin-android-fs",
- "tauri-plugin-app-icon",
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-deep-link",
  "tauri-plugin-devtools",
@@ -8190,17 +8189,6 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tauri-plugin-fs",
- "thiserror 2.0.20",
-]
-
-[[package]]
-name = "tauri-plugin-app-icon"
-version = "0.1.0"
-source = "git+https://github.com/SableClient/tauri-plugin-app-icon?rev=bab80ae17f6d018702e472c539d0f02eba480c21#bab80ae17f6d018702e472c539d0f02eba480c21"
-dependencies = [
- "serde",
- "tauri",
- "tauri-plugin",
  "thiserror 2.0.20",
 ]
 

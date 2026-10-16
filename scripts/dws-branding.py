@@ -31,7 +31,7 @@ import sys
 from PIL import Image, ImageDraw
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-DEFAULT_SRC = pathlib.Path.home() / "homelab-site" / "dsk.png"
+DEFAULT_SRC = pathlib.Path.home() / "maretrix-files" / "dsklogonew.png"
 SRC = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_SRC
 
 NAVY = (13, 21, 38, 255)  # #0d1526, matches --sable-bg-container

@@ -369,7 +369,6 @@ pub fn run() {
 
     #[cfg(mobile)]
     let builder = builder
-        .plugin(tauri_plugin_app_icon::init())
         .plugin(tauri_plugin_edge_to_edge::init())
         .plugin(tauri_plugin_sharekit::init())
         .plugin(tauri_plugin_livekit_mobile::init());

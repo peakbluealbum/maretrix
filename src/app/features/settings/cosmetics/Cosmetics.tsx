@@ -14,7 +14,6 @@ import { settingsAtom } from '$state/settings';
 import { SettingTile, SettingToggle } from '$components/setting-tile';
 import { stopPropagation } from '$utils/keyboard';
 import { Appearance } from './Themes';
-import { AppIconSettings } from './AppIconSettings';
 
 function IconSizePxInput({
   settingKey,
@@ -389,7 +388,6 @@ export function Cosmetics({ requestBack, requestClose }: CosmeticsProps) {
               {!themeBrowserOpen && (
                 <>
                   <IdentityCosmetics />
-                  <AppIconSettings />
                   <IconSizeSettings />
                   <JumboEmoji />
                   <Privacy />
