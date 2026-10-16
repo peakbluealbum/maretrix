@@ -11,6 +11,14 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 engineStrict: true
+# pnpm 11 defaults verifyDepsBeforeRun to "install": every `pnpm run` re-checks
+# node_modules by mtime and silently spawns `pnpm install` when a checkout/cache
+# makes manifests look newer than the recorded install. In the iOS build this
+# fired inside Xcode's "Build Rust Code" script phase and aborted with
+# ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY. The frozen-lockfile install in CI
+# is authoritative, so disable the redundant pre-run check. NOTE: in pnpm 11 this
+# setting is read from pnpm-workspace.yaml only (.npmrc is ignored for it).
+verifyDepsBeforeRun: false
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - 'matrix-js-sdk'
