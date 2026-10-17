@@ -54,9 +54,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # A hyphen in the tag means a semver prerelease (v1.1.0-rc1). Mark it
+          # --prerelease so GitHub's /releases/latest keeps pointing at the last
+          # real release: the desktop updater polls
+          # .../releases/latest/download/latest.json and would otherwise push an
+          # rc onto every installed client.
+          case "${{ github.ref_name }}" in
+            *-*) PRE="--prerelease" ;;
+            *)   PRE="" ;;
+          esac
           gh release view "${{ github.ref_name }}" >/dev/null 2>&1 || \
             gh release create "${{ github.ref_name }}" \
               --title "Maretrix ${{ github.ref_name }}" \
+              $PRE \
               --generate-notes
 
   macos:
@@ -311,7 +321,7 @@ jobs:
   linux-cef:
     name: Linux (CEF, optional)
     needs: [create-release]
-    if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'linux-cef') }}
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && ((github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'linux-cef')) || (github.event_name == 'push' && contains(github.ref_name, '-'))) }}
     runs-on: ubuntu-22.04
     continue-on-error: true
     steps:
@@ -375,6 +385,14 @@ jobs:
           name: maretrix-linux-x86_64-cef
           path: maretrix-cef-x86_64
           if-no-files-found: warn
+      # This job does not use tauri-action (a --no-bundle build has nothing for it
+      # to attach), so on a tagged build the release would silently miss the CEF
+      # binary. Upload it explicitly.
+      - name: Attach CEF binary to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" maretrix-cef-x86_64 --clobber
 
   # Android is opt-in (the targets input must name 'android'), and no device has
   # ever been tested against this, so it must not fail the release.
@@ -398,7 +416,7 @@ jobs:
   android:
     name: Android
     needs: [create-release]
-    if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'android') }}
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && ((github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'android')) || (github.event_name == 'push' && contains(github.ref_name, '-'))) }}
     runs-on: ubuntu-22.04
     continue-on-error: true
     steps:
@@ -493,6 +511,16 @@ jobs:
           name: maretrix-android
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: warn
+      # Built with `tauri android build`, not tauri-action, so nothing attaches it
+      # to a release. Do it explicitly on a tagged build.
+      - name: Attach APK to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
+          test -n "$APK" || { echo "no apk produced"; exit 1; }
+          gh release upload "${{ github.ref_name }}" "$APK" --clobber
 
   # Manual dispatch only. An unsigned IPA that the user re-signs with their own
   # Apple ID: no paid account, so no APNs and no App Group capability. On iOS the
@@ -501,7 +529,7 @@ jobs:
   ios:
     name: iOS (unsigned, experiment)
     needs: [create-release]
-    if: ${{ !cancelled() && needs.create-release.result != 'failure' && github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'ios') }}
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && ((github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'ios')) || (github.event_name == 'push' && contains(github.ref_name, '-'))) }}
     runs-on: macos-latest
     continue-on-error: true
     steps:
@@ -569,3 +597,9 @@ jobs:
           name: maretrix-ios-unsigned
           path: maretrix-unsigned.ipa
           if-no-files-found: warn
+      # The IPA is zipped by hand, not by tauri-action, so attach it explicitly.
+      - name: Attach IPA to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" maretrix-unsigned.ipa --clobber
