@@ -85,6 +85,23 @@ jobs:
         with:
           workspaces: src-tauri -> target
       - run: pnpm install --frozen-lockfile
+      # config.json is committed with EMPTY values - no homeserver list, no push
+      # gateway, no theme catalog, no GIF keys - so the public fork carries no
+      # credentials. The real values live in the gitignored config.secrets.json and
+      # are merged in here from a repository secret. Without this step a downloaded
+      # build ships the empty config and every tester has to type the homeserver by
+      # hand; with it the build behaves like the served web client. Absent secret =>
+      # empty config, exactly as before.
+      - name: Apply config.secrets.json
+        env:
+          CFG: ${{ secrets.CONFIG_SECRETS_JSON }}
+        run: |
+          if [ -n "$CFG" ]; then
+            printf '%s' "$CFG" | base64 -d > config.secrets.json
+            python3 scripts/apply-config-secrets.py
+          else
+            echo "::warning::CONFIG_SECRETS_JSON absent - this build carries the empty config.json"
+          fi
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -162,6 +179,23 @@ jobs:
         with:
           workspaces: src-tauri -> target
       - run: pnpm install --frozen-lockfile
+      # config.json is committed with EMPTY values - no homeserver list, no push
+      # gateway, no theme catalog, no GIF keys - so the public fork carries no
+      # credentials. The real values live in the gitignored config.secrets.json and
+      # are merged in here from a repository secret. Without this step a downloaded
+      # build ships the empty config and every tester has to type the homeserver by
+      # hand; with it the build behaves like the served web client. Absent secret =>
+      # empty config, exactly as before.
+      - name: Apply config.secrets.json
+        env:
+          CFG: ${{ secrets.CONFIG_SECRETS_JSON }}
+        run: |
+          if [ -n "$CFG" ]; then
+            printf '%s' "$CFG" | base64 -d > config.secrets.json
+            python3 scripts/apply-config-secrets.py
+          else
+            echo "::warning::CONFIG_SECRETS_JSON absent - this build carries the empty config.json"
+          fi
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -228,6 +262,24 @@ jobs:
         with:
           workspaces: src-tauri -> target
       - run: pnpm install --frozen-lockfile
+      # config.json is committed with EMPTY values - no homeserver list, no push
+      # gateway, no theme catalog, no GIF keys - so the public fork carries no
+      # credentials. The real values live in the gitignored config.secrets.json and
+      # are merged in here from a repository secret. Without this step a downloaded
+      # build ships the empty config and every tester has to type the homeserver by
+      # hand; with it the build behaves like the served web client. Absent secret =>
+      # empty config, exactly as before.
+      - name: Apply config.secrets.json
+        shell: bash
+        env:
+          CFG: ${{ secrets.CONFIG_SECRETS_JSON }}
+        run: |
+          if [ -n "$CFG" ]; then
+            printf '%s' "$CFG" | base64 -d > config.secrets.json
+            python3 scripts/apply-config-secrets.py
+          else
+            echo "::warning::CONFIG_SECRETS_JSON absent - this build carries the empty config.json"
+          fi
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -290,6 +342,23 @@ jobs:
           workspaces: src-tauri -> target
           key: linux-cef
       - run: pnpm install --frozen-lockfile
+      # config.json is committed with EMPTY values - no homeserver list, no push
+      # gateway, no theme catalog, no GIF keys - so the public fork carries no
+      # credentials. The real values live in the gitignored config.secrets.json and
+      # are merged in here from a repository secret. Without this step a downloaded
+      # build ships the empty config and every tester has to type the homeserver by
+      # hand; with it the build behaves like the served web client. Absent secret =>
+      # empty config, exactly as before.
+      - name: Apply config.secrets.json
+        env:
+          CFG: ${{ secrets.CONFIG_SECRETS_JSON }}
+        run: |
+          if [ -n "$CFG" ]; then
+            printf '%s' "$CFG" | base64 -d > config.secrets.json
+            python3 scripts/apply-config-secrets.py
+          else
+            echo "::warning::CONFIG_SECRETS_JSON absent - this build carries the empty config.json"
+          fi
       # --no-updater: a --no-bundle build cannot emit updater artefacts anyway, and
       # without it the bundler would demand TAURI_SIGNING_PRIVATE_KEY.
       - name: Build (CEF runtime, no bundle)
@@ -365,6 +434,23 @@ jobs:
           sdkmanager --install "ndk;27.0.12077973" "cmake;3.22.1"
           echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
       - run: pnpm install --frozen-lockfile
+      # config.json is committed with EMPTY values - no homeserver list, no push
+      # gateway, no theme catalog, no GIF keys - so the public fork carries no
+      # credentials. The real values live in the gitignored config.secrets.json and
+      # are merged in here from a repository secret. Without this step a downloaded
+      # build ships the empty config and every tester has to type the homeserver by
+      # hand; with it the build behaves like the served web client. Absent secret =>
+      # empty config, exactly as before.
+      - name: Apply config.secrets.json
+        env:
+          CFG: ${{ secrets.CONFIG_SECRETS_JSON }}
+        run: |
+          if [ -n "$CFG" ]; then
+            printf '%s' "$CFG" | base64 -d > config.secrets.json
+            python3 scripts/apply-config-secrets.py
+          else
+            echo "::warning::CONFIG_SECRETS_JSON absent - this build carries the empty config.json"
+          fi
       # Absent secret => nothing is written => gradle picks the FOSS flavour.
       # The value is passed via env rather than interpolated into the script so
       # that the secret's characters can never be read as shell syntax.
@@ -433,6 +519,23 @@ jobs:
         with:
           workspaces: src-tauri -> target
       - run: pnpm install --frozen-lockfile
+      # config.json is committed with EMPTY values - no homeserver list, no push
+      # gateway, no theme catalog, no GIF keys - so the public fork carries no
+      # credentials. The real values live in the gitignored config.secrets.json and
+      # are merged in here from a repository secret. Without this step a downloaded
+      # build ships the empty config and every tester has to type the homeserver by
+      # hand; with it the build behaves like the served web client. Absent secret =>
+      # empty config, exactly as before.
+      - name: Apply config.secrets.json
+        env:
+          CFG: ${{ secrets.CONFIG_SECRETS_JSON }}
+        run: |
+          if [ -n "$CFG" ]; then
+            printf '%s' "$CFG" | base64 -d > config.secrets.json
+            python3 scripts/apply-config-secrets.py
+          else
+            echo "::warning::CONFIG_SECRETS_JSON absent - this build carries the empty config.json"
+          fi
       - name: Fetch pinned LiveKit XCFrameworks (public, sha256-verified)
         run: pnpm ios:frameworks
       # src-tauri/gen/apple/* is gitignored, so the Xcode project does not exist
