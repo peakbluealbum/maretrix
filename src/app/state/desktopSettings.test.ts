@@ -82,10 +82,10 @@ describe('desktop settings state', () => {
     await expect(getDesktopSettings()).resolves.toEqual(DEFAULT_DESKTOP_SETTINGS);
   });
 
-  it('enables the custom title bar by default only on Windows', () => {
+  it('enables the custom title bar by default on Windows and macOS', () => {
     expect(desktopSettingsDefaultsForPlatform('windows').useCustomTitleBar).toBe(true);
+    expect(desktopSettingsDefaultsForPlatform('macos').useCustomTitleBar).toBe(true);
     expect(desktopSettingsDefaultsForPlatform('linux').useCustomTitleBar).toBe(false);
-    expect(desktopSettingsDefaultsForPlatform('macos').useCustomTitleBar).toBe(false);
     expect(desktopSettingsDefaultsForPlatform(undefined).useCustomTitleBar).toBe(false);
   });
 

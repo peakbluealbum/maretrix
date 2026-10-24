@@ -123,6 +123,9 @@ pub(crate) fn load_desktop_settings(
         .build()
         .map_err(|error| tauri::Error::PluginInitialization("store".into(), error.to_string()))?;
 
+    #[cfg(target_os = "macos")]
+    migrate_mac_title_bar_default(&store);
+
     Ok(desktop_settings_from_values(
         store
             .get(CLOSE_TO_BACKGROUND_ON_CLOSE_KEY)
@@ -138,6 +141,27 @@ pub(crate) fn load_desktop_settings(
             .get(LEGACY_KEEP_BACKGROUND_RUNNING_KEY)
             .and_then(|value| value.as_bool()),
     ))
+}
+
+/// rc1 defaulted the custom title bar to off on macOS, which renders the plain
+/// native title bar and looks dated. rc2 turns it on. A settings file written
+/// by rc1 already contains `"useCustomTitleBar": false`, so changing the default
+/// alone would never reach an upgraded install. Migrate once per install.
+#[cfg(target_os = "macos")]
+fn migrate_mac_title_bar_default(store: &tauri_plugin_store::Store<crate::BrowserEngine>) {
+    const MAC_TITLE_BAR_MIGRATION_KEY: &str = "macCustomTitleBarDefaultApplied";
+    if store.get(MAC_TITLE_BAR_MIGRATION_KEY).is_some() {
+        return;
+    }
+    if store
+        .get(USE_CUSTOM_TITLE_BAR_KEY)
+        .and_then(|value| value.as_bool())
+        == Some(false)
+    {
+        store.set(USE_CUSTOM_TITLE_BAR_KEY, json!(true));
+    }
+    store.set(MAC_TITLE_BAR_MIGRATION_KEY, json!(true));
+    let _ = store.save();
 }
 
 fn current_desktop_settings(app: &AppHandle<crate::BrowserEngine>) -> DesktopSettings {

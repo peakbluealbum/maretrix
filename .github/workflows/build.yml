@@ -73,13 +73,11 @@ jobs:
     name: macOS (universal)
     needs: [create-release]
     if: ${{ !cancelled() && needs.create-release.result != 'failure' && (github.event_name == 'push' || contains(github.event.inputs.targets, 'macos')) }}
-  # macos-15, NOT macos-14: the pinned tauri-plugin-notifications rev uses typed
-  # throws (`func f() throws(FFIResult)`), a Swift 6.0 / Xcode 16 feature. The
-  # macos-14 image ships Xcode 15.x, whose compiler cannot parse it and fails the
-  # whole build with "consecutive declarations on a line must be separated by ';'"
-  # in NotificationPlugin.swift — a confusing error that points at a dependency,
-  # not at this repo.
-    runs-on: macos-15
+  # macos-latest, NOT macos-14/15: the pinned tauri-plugin-notifications rev uses
+  # typed throws (`func f() throws(FFIResult)`), a Swift 6.0 / Xcode 16 feature.
+  # macos-14 ships Xcode 15.x and cannot parse it. macos-latest tracks the newest
+  # image GitHub provides, which also matches the modern macOS the owner tests on.
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -112,13 +110,44 @@ jobs:
           else
             echo "::warning::CONFIG_SECRETS_JSON absent - this build carries the empty config.json"
           fi
+      # Stable code signature. rc1 signed ad-hoc ("-"), whose designated
+      # requirement is the cdhash - it changes on every build, so the keychain
+      # ACL for "Maretrix WebCrypto Master Key" never matches and macOS re-prompts
+      # on every WebCrypto access. That is the call keychain loop. A self-signed
+      # certificate gives a stable designated requirement, so "Always Allow"
+      # persists across builds. There is no paid Apple account and no
+      # notarization, so first launch still needs right-click -> Open.
+      # Absent secret => falls back to ad-hoc, exactly as before.
+      - name: Import macOS signing certificate
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_CERT_P12" ]; then
+            echo "::warning::MACOS_CERT_P12 absent - falling back to ad-hoc signing"
+            exit 0
+          fi
+          # Throwaway keychain: it lives only for this runner. No secret needed.
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          echo "$MACOS_CERT_P12" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security list-keychains -d user -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain \
+            -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$KEYCHAIN_PASSWORD" build.keychain >/dev/null
+          rm -f certificate.p12
+          security find-identity -v -p codesigning build.keychain
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          # Ad-hoc signature. No paid Apple account: no notarization, so first
-          # launch needs right-click -> Open (or xattr -dr com.apple.quarantine).
-          APPLE_SIGNING_IDENTITY: '-'
+          # The certificate's CN. Falls back to ad-hoc when the p12 secret is absent.
+          APPLE_SIGNING_IDENTITY: ${{ secrets.MACOS_CERT_P12 && vars.MACOS_SIGN_IDENTITY || '-' }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Maretrix {0}', github.ref_name) || '' }}

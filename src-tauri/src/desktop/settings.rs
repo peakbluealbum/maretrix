@@ -20,7 +20,9 @@ pub(crate) const TOGGLE_WINDOW_SHORTCUT_KEY: &str = "toggleWindowShortcut";
 pub(crate) const LEGACY_KEEP_BACKGROUND_RUNNING_KEY: &str = "keepBackgroundRunning";
 
 pub(crate) const fn use_custom_title_bar_default() -> bool {
-    cfg!(target_os = "windows")
+    // Windows has no usable native chrome; macOS gets the Overlay title bar so
+    // the traffic lights float over the app instead of the dated plain bar.
+    cfg!(any(target_os = "windows", target_os = "macos"))
 }
 
 pub(crate) fn tray_available_for_session(settings: DesktopSettings, tray_created: bool) -> bool {
@@ -131,7 +133,7 @@ mod tests {
         assert_eq!(
             desktop_settings_from_values(Some(true), Some(true), None, None, None)
                 .use_custom_title_bar,
-            cfg!(target_os = "windows")
+            cfg!(any(target_os = "windows", target_os = "macos"))
         );
     }
 

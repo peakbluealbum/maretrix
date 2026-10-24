@@ -20,7 +20,8 @@
     "targets": "all",
     "createUpdaterArtifacts": true,
     "macOS": {
-      "infoPlist": "Info.plist"
+      "infoPlist": "Info.plist",
+      "entitlements": "entitlements.plist"
     },
     "iOS": {
       "template": "src-tauri/ios-project.yml",

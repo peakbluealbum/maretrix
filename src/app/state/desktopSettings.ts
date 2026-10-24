@@ -28,7 +28,7 @@ export function desktopSettingsDefaultsForPlatform(platform: DesktopPlatform): D
   return {
     closeToBackgroundOnClose: true,
     showSystemTrayIcon: true,
-    useCustomTitleBar: platform === 'windows',
+    useCustomTitleBar: platform === 'windows' || platform === 'macos',
     spellcheck: true,
   };
 }
