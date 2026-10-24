@@ -34,7 +34,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_SRC = pathlib.Path.home() / "maretrix-files" / "dsklogonew.png"
 SRC = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_SRC
 
-NAVY = (13, 21, 38, 255)  # #0d1526, matches --sable-bg-container
+NAVY = (11, 27, 51, 255)  # #0b1b33, the mark's own disc colour (maskable field must match)
 LOGO_SIZES = [36, 48, 72, 96, 144, 192, 256, 384, 512]
 MASKABLE_SIZES = [36, 48, 57, 60, 72, 76, 96, 114, 120, 144, 152, 167, 180, 192, 256, 384, 512]
 SAFE_FRACTION = 0.72  # fraction of the tile the art may occupy for maskable icons
