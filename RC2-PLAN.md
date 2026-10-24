@@ -137,9 +137,8 @@ Verified locally in a throwaway keychain: import succeeds, and
 not prevent signing. The workflow's import step therefore needs the partition-list
 call (it has it).
 
-⚠️ **Blocker:** `gh` auth became invalid mid-session (`HTTP 401: Requires
-authentication`, "The token in default is invalid"). Re-run `gh auth login -h github.com`
-before secret updates or build dispatch.
+✅ **Auth blocker cleared** — user re-ran `gh auth login -h github.com`; push and
+workflow dispatch work again.
 
 ---
 
@@ -165,15 +164,20 @@ before secret updates or build dispatch.
 - [x] Add one-time Rust migration so an rc1 install with `useCustomTitleBar:false` picks up the new default.
 - [x] Wire the existing `MACOS_CERT_P12` / `MACOS_CERT_PASSWORD` / `MACOS_SIGN_IDENTITY` artefacts into the workflow import step (was not wired before).
 - [x] Fixed a latent workflow bug: `base64 --decode` on a *file argument* silently reads empty stdin on macOS — the step pipes via stdin, which is correct; kept as-is.
-- [ ] Commit macOS changes locally. ← in progress
-- [ ] Push + dispatch macOS build (BLOCKED on `gh` auth).
-- [ ] Download DMG; inspect entitlements/signature (`codesign -d --entitlements -` must now list camera/audio-input; signature must no longer be `adhoc`).
+- [x] Commit macOS changes locally (`202d097`).
+- [x] Push to `main`.
+- [x] Dispatch macOS build — run `40087497199`; **Import macOS signing certificate step passed** (secret valid, keychain import OK). tauri-action compiling.
+- [x] Build completed — run `40087497199`, macOS job 42m28s, success.
+- [x] Downloaded + inspected DMG. **Verified:** `Authority=Maretrix Self-Signed`, flags `0x10000(runtime)` (hardened runtime), `codesign --verify --deep --strict` passes, universal `x86_64 arm64`, entitlements list camera + audio-input + microphone. Runner was **macOS 26.5.0** (Tahoe), so `macos-latest` did move to the newest image.
 - [ ] User test on real Mac: calls, device list, titlebar, keychain prompt count.
+  - DMG staged at `~/Downloads/Maretrix-1.1.0-rc1-macos-entitlements-test.dmg` (sha256 `c45cd2b2de947a5d204148b8a02b0d68b25b37f3d945b799f4a20959aa9f2e2f`, 62.8 MB).
+  - Version string is still `1.1.0-rc1` — bump deferred until hardware confirmation per D3.
 
 ### Phase 2 — Linux
-- [ ] Commit the GPU-probe fix (already drafted).
-- [ ] Remove CEF job + target input.
-- [ ] Build x86_64 + aarch64; download and inspect.
+- [x] GPU-probe fix drafted in `src-tauri/src/main.rs` — NVIDIA-only DMABUF disable, `SABLE_SAFE_RENDERING=1` escape hatch, user env overrides win. `rustfmt --check` clean.
+- [x] Removed the `linux-cef` job from `.github/workflows/build.yml` (lines 345–424) and dropped `linux-cef` from the `targets` input description. YAML re-parsed OK; jobs now `create-release, macos, linux, windows, android, ios`. Zero `cef` references left.
+- [ ] Commit Linux changes.
+- [ ] Push + dispatch `linux` build (x86_64 + aarch64); download and inspect artifacts.
 - [ ] User test on Artix.
 
 ### Phase 3 — iOS

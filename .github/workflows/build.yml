@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       targets:
-        description: 'Comma-separated platforms to build: macos,linux,linux-cef,windows,android,ios'
+        description: 'Comma-separated platforms to build: macos,linux,windows,android,ios'
         required: true
         # `windows` is deliberately NOT in the default: its build is currently
         # broken (see the windows job) and it must never be started by accident.
@@ -342,86 +342,6 @@ jobs:
             src-tauri/target/**/release/bundle/**/*.sig
           if-no-files-found: error
 
-  # Optional: CEF (Chromium) runtime instead of WebKitGTK on Linux. NOT part of the
-  # default target set and not part of a tagged release — CEF bundles a whole
-  # Chromium, so the binary is far larger. scripts/tauri.js forces --no-bundle for
-  # `cef build`, so this uploads the raw executable rather than a .deb/.AppImage.
-  # Advisory: the CEF path has not been exercised in CI yet.
-  linux-cef:
-    name: Linux (CEF, optional)
-    needs: [create-release]
-    if: ${{ !cancelled() && needs.create-release.result != 'failure' && ((github.event_name == 'workflow_dispatch' && contains(github.event.inputs.targets, 'linux-cef')) || (github.event_name == 'push' && contains(github.ref_name, '-'))) }}
-    runs-on: ubuntu-22.04
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          # Mirror the known-good `linux` job: soup3-sys and javascriptcore-rs-sys
-          # still get compiled even on the CEF path (they are pulled in
-          # transitively), so their pkg-config files must exist. libwebkit2gtk-4.1-dev
-          # is what supplies libsoup-3.0.pc and javascriptcoregtk-4.1.pc — without it
-          # the CEF build died with "Package 'libsoup-3.0' ... not found".
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
-            librsvg2-dev patchelf libssl-dev libxdo-dev libfuse2 file \
-            xdg-utils \
-            libnss3 libnspr4 libgbm1 libdrm2 libxkbcommon0 libasound2
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-          key: linux-cef
-      - run: pnpm install --frozen-lockfile
-      # config.json is committed with EMPTY values - no homeserver list, no push
-      # gateway, no theme catalog, no GIF keys - so the public fork carries no
-      # credentials. The real values live in the gitignored config.secrets.json and
-      # are merged in here from a repository secret. Without this step a downloaded
-      # build ships the empty config and every tester has to type the homeserver by
-      # hand; with it the build behaves like the served web client. Absent secret =>
-      # empty config, exactly as before.
-      - name: Apply config.secrets.json
-        env:
-          CFG: ${{ secrets.CONFIG_SECRETS_JSON }}
-        run: |
-          if [ -n "$CFG" ]; then
-            printf '%s' "$CFG" | base64 -d > config.secrets.json
-            python3 scripts/apply-config-secrets.py
-          else
-            echo "::warning::CONFIG_SECRETS_JSON absent - this build carries the empty config.json"
-          fi
-      # --no-updater: a --no-bundle build cannot emit updater artefacts anyway, and
-      # without it the bundler would demand TAURI_SIGNING_PRIVATE_KEY.
-      - name: Build (CEF runtime, no bundle)
-        run: pnpm tauri:cef build --no-updater
-      - name: Stage binary
-        run: |
-          # Cargo package is `sable`; productName is `Maretrix`. Match either, case-insensitively.
-          BIN=$(find src-tauri/target/release -maxdepth 1 -type f -perm -u+x \
-                \( -iname 'maretrix' -o -iname 'sable' \) | head -1)
-          test -n "$BIN" || { echo "no binary produced"; ls -la src-tauri/target/release; exit 1; }
-          cp "$BIN" maretrix-cef-x86_64
-      - uses: actions/upload-artifact@v4
-        with:
-          name: maretrix-linux-x86_64-cef
-          path: maretrix-cef-x86_64
-          if-no-files-found: warn
-      # This job does not use tauri-action (a --no-bundle build has nothing for it
-      # to attach), so on a tagged build the release would silently miss the CEF
-      # binary. Upload it explicitly.
-      - name: Attach CEF binary to release
-        if: github.ref_type == 'tag'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.ref_name }}" maretrix-cef-x86_64 --clobber
 
   # Android is opt-in (the targets input must name 'android'), and no device has
   # ever been tested against this, so it must not fail the release.

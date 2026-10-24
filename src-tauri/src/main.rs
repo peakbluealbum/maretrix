@@ -250,12 +250,11 @@ fn main() {
             std::env::set_var("GDK_BACKEND", "x11");
         }
 
-        // NVIDIA explicit sync is another upstream WebKitGTK/Wayland failure mode. Prefer this lower-cost workaround over WEBKIT_DISABLE_DMABUF_RENDERER=1, but don't stomp an explicit user override.
+        // NVIDIA explicit sync is another upstream WebKitGTK/Wayland failure
+        // mode, but it is only meaningful (and only safe to assume) on NVIDIA.
+        // It is applied in the GPU-probed block below, alongside the DMABUF
+        // workaround, so Mesa machines keep the accelerated path.
         // https://github.com/tauri-apps/tauri/issues/10702
-        // https://github.com/tauri-apps/tauri/issues/9394
-        if std::env::var_os("__NV_DISABLE_EXPLICIT_SYNC").is_none() {
-            std::env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
-        }
     }
 
     // WebKitGTK/GStreamer workarounds, wry only; inert under CEF (Chromium).
@@ -263,14 +262,59 @@ fn main() {
     unsafe {
         use std::path::{Path, PathBuf};
 
-        // WebKit2GTK can hit compositor/DMABUF bugs
-        // https://github.com/tauri-apps/tauri/issues/14424
+        // WebKit2GTK's DMABUF renderer fails on some driver/compositor
+        // combinations, and the failure modes are not symmetric:
+        //
+        //   * NVIDIA proprietary: the DMABUF path aborts the WebProcess
+        //     (blank window, "AcceleratedSurfaceDMABuf was unable to construct
+        //     a complete framebuffer", or a Wayland Error 71 crash). Turning it
+        //     off is the documented cure.
+        //   * Modern Mesa (AMD/Intel, WebKitGTK >= 2.44): the DMABUF path is
+        //     healthy, and forcibly turning it OFF drops WebKit to an EGL
+        //     fallback that aborts immediately with
+        //     "Could not create default EGL display: EGL_BAD_PARAMETER".
+        //     The window then shows only its background colour forever.
+        //
+        // So: only disable it when we can positively identify NVIDIA, and let
+        // the user override either way. Setting the variable unconditionally is
+        // what produced a permanently blank Maretrix window on Artix.
         // https://github.com/tauri-apps/tauri/issues/9394
-        if std::env::var_os("WEBKIT_DISABLE_COMPOSITING_MODE").is_none() {
-            std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+        // https://github.com/tauri-apps/tauri/issues/14424
+        fn has_nvidia_gpu() -> bool {
+            // PCI vendor 0x10de is NVIDIA. Check every DRM card node.
+            let Ok(entries) = std::fs::read_dir("/sys/class/drm") else {
+                return false;
+            };
+            entries.flatten().any(|entry| {
+                let name = entry.file_name();
+                if !name.to_string_lossy().starts_with("card") {
+                    return false;
+                }
+                std::fs::read_to_string(entry.path().join("device/vendor"))
+                    .map(|vendor| vendor.trim().eq_ignore_ascii_case("0x10de"))
+                    .unwrap_or(false)
+            })
         }
-        if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
-            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+
+        if has_nvidia_gpu() {
+            if std::env::var_os("__NV_DISABLE_EXPLICIT_SYNC").is_none() {
+                std::env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
+            }
+            if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+                std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+            }
+        }
+
+        // Escape hatch for machines the probe above gets wrong, in either
+        // direction: SABLE_SAFE_RENDERING=1 forces the maximally conservative
+        // path; setting the WEBKIT_* variables yourself always wins.
+        if std::env::var_os("SABLE_SAFE_RENDERING").is_some() {
+            if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+                std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+            }
+            if std::env::var_os("WEBKIT_DISABLE_COMPOSITING_MODE").is_none() {
+                std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+            }
         }
 
         // AppImage can fail to discover host GStreamer plugins/scanner. Probe
