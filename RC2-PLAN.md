@@ -1,5 +1,38 @@
 # RC2 — platform build fixes. Working document.
 
+> ## ⛔ PAUSED 2026-10-25 — DO NOT EXECUTE ANY RC2 WORK
+>
+> All Maretrix/rc2 work is on hold until the Hermes context-compaction problem is
+> fixed and the user confirms. Reason: repeated compaction destroys the working
+> state mid-task, which is what produced the recheck/re-verify loops and the two
+> wasted hours. Fixing compaction comes first; nothing in this file is in flight.
+>
+> ### Decisions recorded 2026-10-25 (user answers — do not re-ask)
+>
+> 1. **Signing — self-signed is fine.** There is no paid Apple Developer account and
+>    none is being bought. rc2 ships ad-hoc/self-signed exactly as it does today.
+>    "Developer ID + notarization" was never a requirement; it was an option. Closed.
+> 2. **Diagnostics depth — DROPPED.** The extra device-enumeration / secure-storage
+>    backend dump was my suggestion; the user approved it only because I said it was
+>    needed. It is not needed (calls now prompt once and work). Keep the existing
+>    Capture Diagnostics as-is. Do not implement device/keyring dumping.
+> 3. **Liquid Glass icon — try precompiling `Assets.car`.** Do not wait on tauri#15315.
+>    Compile the `.icon` to `Assets.car` with Apple's `actool` and ship the `.car`
+>    directly in `bundle.icon` (tauri-bundler accepts a prebuilt `.car` and skips the
+>    crashing path). **Assume Xcode 27** (October 2026), minimum-deployment-target 26.0.
+>    Our host has Command Line Tools only, so compilation happens on a macOS CI runner.
+>    `src-tauri/icons/AppIcon.icon/` and `scripts/icons/build-liquid-glass.py` stay.
+>
+> ### State at pause
+>
+> - macOS: builds green. Run `40148567360` (commit `8d3ed62`) succeeded, artifact
+>   `maretrix-macos-universal` 125,435,492 bytes uploaded. Ships flat `.icns`
+>   (icon jail on macOS 26) until `.car` precompilation lands.
+> - Icon art verified numerically: navy `(35,40,55)` field, scarlet `(242,48,73)`
+>   glyph, identical across `icon.icns`, `AppIcon-1024.png`, `public/favicon.png`,
+>   and both 512px logo sets. Variant C is what ships; no rework needed.
+> - Linux / iOS / Android / signing / diagnostics: untouched, nothing in flight.
+
 **Purpose:** single source of truth for the 1.1.0-rc2 pass. Read this before doing anything.
 **Rule:** one platform at a time. Update the Progress log *as each step finishes*.
 If a step is not in the Progress log as done, it is not done. Do not re-derive settled facts.
