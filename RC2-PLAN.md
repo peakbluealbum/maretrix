@@ -180,7 +180,18 @@ workflow dispatch work again.
 - [x] Full-bleed 1024, `icon.icns`, `32/64/128/128@2x`, `public/res/logo*`, `public/favicon.png`.
 - [x] `tauri.conf.json` icon list includes `icons/AppIcon.icon`.
 - [x] Verified numerically: corners opaque navy (L≈40), glyph L≈91, alpha 255 everywhere.
-- [ ] CI gate: macOS "Compile Assets.car" step must produce `Assets.car` in the bundle.
+- [x] Attempted real `.icon` compile in CI — **blocked upstream**: bundling dies in
+      `create_assets_car_file` → `failed to run actool` (run `40145371140`, 2026-10-25).
+      This is tauri-apps/tauri#15315: actool throws
+      `__NSPlaceholderArray initWithObjects:count: attempt to insert nil object`
+      while selecting Icon Composer items. Reproduces on the upstream example app, so
+      it is not caused by our `icon.json`.
+- [x] rc2 decision: keep `icons/AppIcon.icon` in the repo but remove it from
+      `bundle.icon` so the release builds. The "Verify Liquid Glass icon compiled"
+      step became a non-blocking status report. rc2 ships the flat `.icns` (icon jail
+      on macOS 26) rather than a red build.
+- [ ] Re-enable once #15315 is fixed upstream, or precompile `Assets.car` on a working
+      Xcode 26 toolchain and ship the `.car` directly (bundle.icon accepts `.car`).
 - [ ] User test: dock icon on macOS 26 (full-size, no icon jail).
 - [ ] Deploy web/PWA set to VPS2 (manual image rebuild, redeploy Scenario C) — separate step.
 
