@@ -6,6 +6,10 @@
     <string>Maretrix</string>
     <key>CFBundleName</key>
     <string>Maretrix</string>
+    <!-- Liquid Glass (macOS 26+) icon: the bundler compiles icons/AppIcon.icon
+         to Assets.car and this key makes LaunchServices read it. -->
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>NSCameraUsageDescription</key>
     <string>Maretrix needs camera access for video calls.</string>
     <key>NSMicrophoneUsageDescription</key>

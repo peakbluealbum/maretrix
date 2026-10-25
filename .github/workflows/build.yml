@@ -161,6 +161,25 @@ jobs:
           # which fails client init. `geolocation` is dropped on purpose (it pulls
           # play-services-location); that matches scripts/tauri.js.
           args: --target universal-apple-darwin --features wry,updater,matrix-crypto -- --no-default-features
+      # Acceptance gate for the Liquid Glass icon. A flat .icns ships happily and
+      # lands in "icon jail" on macOS 26 (small, dim, inset in a system squircle),
+      # so a missing Assets.car must fail the build rather than ship silently.
+      - name: Verify Liquid Glass icon compiled
+        run: |
+          set -euo pipefail
+          APP=$(find src-tauri/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
+          echo "app bundle: $APP"
+          ls -l "$APP/Contents/Resources" | head -20
+          test -f "$APP/Contents/Resources/Assets.car" || {
+            echo "::error::Assets.car missing - icons/AppIcon.icon was not compiled; icon will render in icon jail"
+            exit 1
+          }
+          NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconName" "$APP/Contents/Info.plist" 2>/dev/null | tr -d '[:space:]')
+          test "$NAME" = "AppIcon" || {
+            echo "::error::CFBundleIconName is '$NAME', expected 'AppIcon'"
+            exit 1
+          }
+          echo "OK: Assets.car present, CFBundleIconName=AppIcon"
       # tauri-action has NO artifact-upload input — it only attaches assets to a
       # GitHub Release, and only when a tag is supplied. On workflow_dispatch
       # tagName is empty, so without this step the bundles are built on the runner

@@ -173,6 +173,17 @@ workflow dispatch work again.
   - DMG staged at `~/Downloads/Maretrix-1.1.0-rc1-macos-entitlements-test.dmg` (sha256 `c45cd2b2de947a5d204148b8a02b0d68b25b37f3d945b799f4a20959aa9f2e2f`, 62.8 MB).
   - Version string is still `1.1.0-rc1` — bump deferred until hardware confirmation per D3.
 
+### Phase 4 — Branding: Liquid Glass icon set (rc2)
+- [x] Decided: variant **C — ember glass**; real `.icon` asset set for rc2; same art for web/PWA.
+- [x] `scripts/icons/build-liquid-glass.py` regenerates the full set from the ember-glass master.
+- [x] `src-tauri/icons/AppIcon.icon/` (`icon.json` + `AppIcon-1024.png`, translucency off).
+- [x] Full-bleed 1024, `icon.icns`, `32/64/128/128@2x`, `public/res/logo*`, `public/favicon.png`.
+- [x] `tauri.conf.json` icon list includes `icons/AppIcon.icon`.
+- [x] Verified numerically: corners opaque navy (L≈40), glyph L≈91, alpha 255 everywhere.
+- [ ] CI gate: macOS "Compile Assets.car" step must produce `Assets.car` in the bundle.
+- [ ] User test: dock icon on macOS 26 (full-size, no icon jail).
+- [ ] Deploy web/PWA set to VPS2 (manual image rebuild, redeploy Scenario C) — separate step.
+
 ### Phase 2 — Linux
 - [x] GPU-probe fix drafted in `src-tauri/src/main.rs` — NVIDIA-only DMABUF disable, `SABLE_SAFE_RENDERING=1` escape hatch, user env overrides win. `rustfmt --check` clean.
 - [x] Removed the `linux-cef` job from `.github/workflows/build.yml` (lines 345–424) and dropped `linux-cef` from the `targets` input description. YAML re-parsed OK; jobs now `create-release, macos, linux, windows, android, ios`. Zero `cef` references left.
