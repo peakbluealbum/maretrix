@@ -104,27 +104,48 @@ def main() -> None:
     master = Image.open(SRC).convert("RGBA")
     art, edge = fullbleed(master, 1024)
 
+    # actool resolves `image-name` relative to AppIcon.icon/Assets/. A PNG at the
+    # bundle root resolves to nil and actool aborts with
+    # `NSPlaceholderArray initWithObjects:count: attempt to insert nil object`.
+    # Keep the artwork inside Assets/ or the .icon compile fails.
+    ICON_ASSETS = ICON_DIR / "Assets"
+    ICON_ASSETS.mkdir(parents=True, exist_ok=True)
     ICON_DIR.mkdir(parents=True, exist_ok=True)
-    art.save(ICON_DIR / "AppIcon-1024.png", optimize=True)
+    art.save(ICON_ASSETS / "AppIcon-1024.png", optimize=True)
     art.save(REPO / "src-tauri" / "icons" / "AppIcon-1024-fullbleed.png", optimize=True)
 
-    # One opaque layer. No translucency, no baked shadow: the OS draws the
-    # glass material, the specular rim and the dark/tinted variants.
+    # Icon Composer document. Schema verified against real shipping .icon files
+    # (iina, agency-agents): fill-specializations + per-group name/specular/
+    # blur-material + squares:[macOS]. The previous hand-written schema used
+    # invented keys ("fill" at root, "circles":[watchOS], "squares":"shared"),
+    # which made actool resolve a nil item and abort.
+    # One opaque layer: the OS draws the glass material and specular rim.
     fill = "srgb:{:.5f},{:.5f},{:.5f},1.00000".format(
         edge[0] / 255, edge[1] / 255, edge[2] / 255
     )
     icon_json = {
-        "fill": {"solid": fill},
+        "fill-specializations": [
+            {"value": {"solid": fill}},
+            {"appearance": "dark", "value": {"solid": fill}},
+        ],
         "groups": [
             {
+                "blur-material": None,
                 "layers": [
-                    {"image-name": "AppIcon-1024.png", "name": "Ember Glass"}
+                    {
+                        "glass": False,
+                        "image-name": "AppIcon-1024.png",
+                        "name": "Ember Glass",
+                        "opacity": 1,
+                    }
                 ],
+                "name": "Ember Glass",
                 "shadow": {"kind": "neutral", "opacity": 0.0},
+                "specular": False,
                 "translucency": {"enabled": False, "value": 0.0},
             }
         ],
-        "supported-platforms": {"circles": ["watchOS"], "squares": "shared"},
+        "supported-platforms": {"squares": ["macOS"]},
     }
     (ICON_DIR / "icon.json").write_text(json.dumps(icon_json, indent=2) + "\n")
 
@@ -140,11 +161,15 @@ def main() -> None:
     art.resize((512, 512), Image.LANCZOS).save(REPO / "public" / "favicon.png", optimize=True)
 
     # Keep a copy next to the bundle so CI can diff the compiled result.
-    shutil.copy2(ICON_DIR / "AppIcon-1024.png", REPO / "src-tauri" / "icons" / "AppIcon-1024.png")
+    shutil.copy2(ICON_ASSETS / "AppIcon-1024.png", REPO / "src-tauri" / "icons" / "AppIcon-1024.png")
 
     print(f"icon bundle : {ICON_DIR}")
     for f in sorted(ICON_DIR.iterdir()):
-        print(f"  {f.name:24} {f.stat().st_size:>8} bytes")
+        size = f.stat().st_size if f.is_file() else sum(
+            p.stat().st_size for p in f.rglob("*") if p.is_file()
+        )
+        kind = "" if f.is_file() else "/"
+        print(f"  {f.name + kind:24} {size:>8} bytes")
     print("pwa icons   :", ", ".join(sorted(p.name for p in PWA_DIR.glob("*.png"))))
 
 
