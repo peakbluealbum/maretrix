@@ -32,6 +32,25 @@
 >   glyph, identical across `icon.icns`, `AppIcon-1024.png`, `public/favicon.png`,
 >   and both 512px logo sets. Variant C is what ships; no rework needed.
 > - Linux / iOS / Android / signing / diagnostics: untouched, nothing in flight.
+>
+> ### Compaction settings applied 2026-10-24 21:04 (before unpausing)
+>
+> Root cause of the recheck loops: `threshold: 0.5` on a 1M window fired a fold at
+> ~524k tokens that cut ~500 messages to ~75 and pruned ~290 tool results — i.e. it
+> deleted the "already ran that" record. Two folds in one session, 8 "folded away the
+> just-delivered reply" warnings, 13 memory-save refusals. Compaction itself costs
+> ~$0.01; the rework it causes cost ~$6.60 in one looped session.
+>
+> Changed (backup: `~/.hermes/config.yaml.pre-compaction-tune.20261024-210414`):
+> `compression.threshold 0.5 → 0.65`, `compression.protect_last_n 40 → 150`,
+> `compression.proactive_prune_tokens 0 → 25000`, `memory.memory_char_limit 2600 → 4000`.
+> `target_ratio` left at 0.2 — inert in lean tail mode. Compression settings take
+> effect on the next message; memory limit at the next session start.
+>
+> Monitoring for the rest of rc2: after each long session check
+> `session_model_usage` (calls, cost) and `context compression attempt telemetry`
+> (messages_before→after) in `~/.hermes/logs/agent.log`. Baseline to beat: the
+> looped session `20261009_222221` = 1,556 main-loop calls, $8.29, 9 compactions.
 
 **Purpose:** single source of truth for the 1.1.0-rc2 pass. Read this before doing anything.
 **Rule:** one platform at a time. Update the Progress log *as each step finishes*.
