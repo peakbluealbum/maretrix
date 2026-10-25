@@ -163,21 +163,19 @@ jobs:
           args: --target universal-apple-darwin --features wry,updater,matrix-crypto -- --no-default-features
       # Liquid Glass icon status report. NOT a gate.
       #
-      # Settled 2026-10-25 (runs 40145371140, 40159237394): standalone `actool`
-      # cannot compile a Liquid Glass `.icon` document at all. Debug logging
-      # showed the crash is
-      #   selectCatalogIconComposerItemsFromCollection: ... attempt to insert
-      #   nil object from objects[0]
-      # i.e. actool finds no valid Icon Composer items. This is a known Apple
-      # limitation, not our schema: Xcode's internal build path compiles these
-      # documents, the standalone CLI does not. tauri-bundler shells out to the
-      # standalone CLI, so `bundle.icon` must not list `.icon`.
+      # Settled 2026-10-25. We ship a PRECOMPILED `icons/Assets.car`, listed in
+      # bundle.icon. tauri-bundler copies a `.car` verbatim and returns before
+      # ever invoking actool, so the CI runner's actool version is irrelevant.
       #
-      # Our icon.json and Assets/ layout are correct and stay in the repo. rc2
-      # ships the flat .icns (icon jail on macOS 26). To get real Liquid Glass
-      # later: export a Tahoe .icns from Icon Composer.app, or precompile
-      # Assets.car on a machine with full Xcode and list the .car in
-      # bundle.icon — the bundler copies a .car verbatim, skipping actool.
+      # Why precompiled: the earlier crashes (`failed to run actool`,
+      # selectCatalogIconComposerItemsFromCollection nil object, runs
+      # 40145371140 / 40159237394) were the macos-latest runner's older actool.
+      # Verified 2026-10-25: the same document compiles cleanly with Xcode 27.1
+      # actool 27.1 locally, producing Assets.car + Icon.icns with exit 0. Our
+      # icon.json and Assets/ layout were correct all along.
+      #
+      # Regenerate Assets.car with scripts/icons/compile-assets-car.sh (needs
+      # full Xcode, not just Command Line Tools) and commit the result.
       - name: Report Liquid Glass icon status
         run: |
           set -euo pipefail
