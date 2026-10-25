@@ -232,18 +232,26 @@ workflow dispatch work again.
 - [x] Full-bleed 1024, `icon.icns`, `32/64/128/128@2x`, `public/res/logo*`, `public/favicon.png`.
 - [x] `tauri.conf.json` icon list includes `icons/AppIcon.icon`.
 - [x] Verified numerically: corners opaque navy (L≈40), glyph L≈91, alpha 255 everywhere.
-- [x] Attempted real `.icon` compile in CI — **blocked upstream**: bundling dies in
-      `create_assets_car_file` → `failed to run actool` (run `40145371140`, 2026-10-25).
-      This is tauri-apps/tauri#15315: actool throws
-      `__NSPlaceholderArray initWithObjects:count: attempt to insert nil object`
-      while selecting Icon Composer items. Reproduces on the upstream example app, so
-      it is not caused by our `icon.json`.
-- [x] rc2 decision: keep `icons/AppIcon.icon` in the repo but remove it from
-      `bundle.icon` so the release builds. The "Verify Liquid Glass icon compiled"
-      step became a non-blocking status report. rc2 ships the flat `.icns` (icon jail
-      on macOS 26) rather than a red build.
-- [ ] Re-enable once #15315 is fixed upstream, or precompile `Assets.car` on a working
-      Xcode 26 toolchain and ship the `.car` directly (bundle.icon accepts `.car`).
+- [x] Attempted real `.icon` compile in CI — **blocked by Apple, not our schema**.
+      Debug logging (`RUST_LOG=tauri_bundler=debug`, run `40160546318`) surfaced actool's
+      actual stderr: `selectCatalogIconComposerItemsFromCollection: ... attempt to insert
+      nil object from objects[0]`. Two CI attempts failed identically: `40145371140`
+      (bundle-root PNG, invented schema) and `40159237394` (Assets/ PNG, real schema).
+      Schema changes made no difference.
+      **Root cause:** standalone `actool` cannot compile a Liquid Glass `.icon` document
+      at all. Xcode's *internal* build path does; the CLI does not. tauri-bundler shells
+      out to the standalone CLI. This is documented by the agency-agents repo README
+      ("Standalone `actool` won't compile a Liquid Glass `.icon`"). Our `icon.json` +
+      `Assets/` layout is correct and verified against real shipping documents.
+- [x] rc2 decision: keep `icons/AppIcon.icon` in the repo but keep it OUT of
+      `bundle.icon` so the release builds. rc2 ships the flat `.icns` (icon jail on
+      macOS 26) rather than a red build. Generator now writes to `Assets/` and emits the
+      real schema, so the bundle is ready whenever a compile path exists.
+- [ ] Liquid Glass later — two working routes, neither is standalone actool:
+      (a) export a Tahoe-compatible `.icns` from Icon Composer.app (needs full Xcode,
+      not just CLT) and ship that; or (b) precompile `Assets.car` on a machine with full
+      Xcode and list the `.car` in `bundle.icon` — the bundler copies `.car` verbatim and
+      skips actool entirely.
 - [ ] User test: dock icon on macOS 26 (full-size, no icon jail).
 - [ ] Deploy web/PWA set to VPS2 (manual image rebuild, redeploy Scenario C) — separate step.
 

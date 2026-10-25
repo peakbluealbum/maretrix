@@ -148,11 +148,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           # The certificate's CN. Falls back to ad-hoc when the p12 secret is absent.
           APPLE_SIGNING_IDENTITY: ${{ secrets.MACOS_CERT_P12 && vars.MACOS_SIGN_IDENTITY || '-' }}
-          # tauri-bundler pipes actool's stderr into debug logging. Without this
-          # the only visible message is the generic "failed to run actool" and we
-          # cannot tell whether actool rejected the document, the image format,
-          # or a flag. Temporary diagnostic — remove once .icon compiles.
-          RUST_LOG: tauri_bundler=debug
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Maretrix {0}', github.ref_name) || '' }}
@@ -166,15 +161,23 @@ jobs:
           # which fails client init. `geolocation` is dropped on purpose (it pulls
           # play-services-location); that matches scripts/tauri.js.
           args: --target universal-apple-darwin --features wry,updater,matrix-crypto -- --no-default-features
-      # Liquid Glass icon status report. Kept as a report, not a gate: the
-      # bundler itself fails hard if actool rejects the document, so this step
-      # only adds diagnostics on top of that. Attempt 2 (2026-10-25) fixed the
-      # two things that made actool crash with NSPlaceholderArray nil object:
-      # the artwork now lives in AppIcon.icon/Assets/ (actool resolves
-      # `image-name` relative to that directory) and icon.json uses the real
-      # schema keys (fill-specializations / specular / group name). If actool
-      # still refuses, fall back to precompiling Assets.car on Xcode 26+ and
-      # listing the .car in bundle.icon — the bundler copies a .car verbatim.
+      # Liquid Glass icon status report. NOT a gate.
+      #
+      # Settled 2026-10-25 (runs 40145371140, 40159237394): standalone `actool`
+      # cannot compile a Liquid Glass `.icon` document at all. Debug logging
+      # showed the crash is
+      #   selectCatalogIconComposerItemsFromCollection: ... attempt to insert
+      #   nil object from objects[0]
+      # i.e. actool finds no valid Icon Composer items. This is a known Apple
+      # limitation, not our schema: Xcode's internal build path compiles these
+      # documents, the standalone CLI does not. tauri-bundler shells out to the
+      # standalone CLI, so `bundle.icon` must not list `.icon`.
+      #
+      # Our icon.json and Assets/ layout are correct and stay in the repo. rc2
+      # ships the flat .icns (icon jail on macOS 26). To get real Liquid Glass
+      # later: export a Tahoe .icns from Icon Composer.app, or precompile
+      # Assets.car on a machine with full Xcode and list the .car in
+      # bundle.icon — the bundler copies a .car verbatim, skipping actool.
       - name: Report Liquid Glass icon status
         run: |
           set -euo pipefail
