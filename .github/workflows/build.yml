@@ -148,6 +148,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           # The certificate's CN. Falls back to ad-hoc when the p12 secret is absent.
           APPLE_SIGNING_IDENTITY: ${{ secrets.MACOS_CERT_P12 && vars.MACOS_SIGN_IDENTITY || '-' }}
+          # tauri-bundler pipes actool's stderr into debug logging. Without this
+          # the only visible message is the generic "failed to run actool" and we
+          # cannot tell whether actool rejected the document, the image format,
+          # or a flag. Temporary diagnostic — remove once .icon compiles.
+          RUST_LOG: tauri_bundler=debug
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Maretrix {0}', github.ref_name) || '' }}
