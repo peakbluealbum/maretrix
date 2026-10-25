@@ -161,13 +161,15 @@ jobs:
           # which fails client init. `geolocation` is dropped on purpose (it pulls
           # play-services-location); that matches scripts/tauri.js.
           args: --target universal-apple-darwin --features wry,updater,matrix-crypto -- --no-default-features
-      # Liquid Glass icon status report. This is deliberately NOT a hard gate:
-      # tauri-bundler's actool path crashes on a Liquid Glass `.icon`
-      # (tauri-apps/tauri#15315 - NSPlaceholderArray nil object), and rc2 must
-      # still produce installable artifacts. icons/AppIcon.icon stays in the
-      # repo and is re-enabled in bundle.icon once the upstream crash is fixed
-      # or Assets.car is precompiled on a working Xcode 26 toolchain.
-      # Until then rc2 ships the flat .icns and macOS 26 draws it in icon jail.
+      # Liquid Glass icon status report. Kept as a report, not a gate: the
+      # bundler itself fails hard if actool rejects the document, so this step
+      # only adds diagnostics on top of that. Attempt 2 (2026-10-25) fixed the
+      # two things that made actool crash with NSPlaceholderArray nil object:
+      # the artwork now lives in AppIcon.icon/Assets/ (actool resolves
+      # `image-name` relative to that directory) and icon.json uses the real
+      # schema keys (fill-specializations / specular / group name). If actool
+      # still refuses, fall back to precompiling Assets.car on Xcode 26+ and
+      # listing the .car in bundle.icon — the bundler copies a .car verbatim.
       - name: Report Liquid Glass icon status
         run: |
           set -euo pipefail

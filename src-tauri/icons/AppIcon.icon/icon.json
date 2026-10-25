@@ -1,19 +1,34 @@
 {
-  "fill": {
-    "solid": "srgb:0.13725,0.15686,0.21569,1.00000"
-  },
+  "fill-specializations": [
+    {
+      "value": {
+        "solid": "srgb:0.13725,0.15686,0.21569,1.00000"
+      }
+    },
+    {
+      "appearance": "dark",
+      "value": {
+        "solid": "srgb:0.13725,0.15686,0.21569,1.00000"
+      }
+    }
+  ],
   "groups": [
     {
+      "blur-material": null,
       "layers": [
         {
+          "glass": false,
           "image-name": "AppIcon-1024.png",
-          "name": "Ember Glass"
+          "name": "Ember Glass",
+          "opacity": 1
         }
       ],
+      "name": "Ember Glass",
       "shadow": {
         "kind": "neutral",
         "opacity": 0.0
       },
+      "specular": false,
       "translucency": {
         "enabled": false,
         "value": 0.0
@@ -21,9 +36,8 @@
     }
   ],
   "supported-platforms": {
-    "circles": [
-      "watchOS"
-    ],
-    "squares": "shared"
+    "squares": [
+      "macOS"
+    ]
   }
 }
