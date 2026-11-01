@@ -17,9 +17,13 @@ import { createRequire } from 'module';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import buildConfig from './build.config';
 
-const appConfig = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, 'config.json'), 'utf8')
-) as Record<string, unknown>;
+// The committed config.json is an empty template (no homeserver, no provider keys), so the
+// public repo carries no credentials. A build that needs the real values points this at a
+// merged copy instead of mutating the tracked file:
+//   MARETRIX_CONFIG_PATH=/tmp/…/config.json pnpm tauri build
+// scripts/build-macos-local.sh does exactly that. Unset, behaviour is unchanged (CI path).
+const configSource = process.env.MARETRIX_CONFIG_PATH ?? path.resolve(__dirname, 'config.json');
+const appConfig = JSON.parse(fs.readFileSync(configSource, 'utf8')) as Record<string, unknown>;
 
 const packageJson = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')
@@ -90,8 +94,11 @@ const copyFiles = {
       rename: { name: 'pdf.worker.min.js', stripBase: true as const },
     },
     {
-      src: 'config.json',
+      // Always lands as dist/config.json: the client fetches `${BASE_URL}/config.json` at
+      // runtime and Tauri embeds dist/ into the binary, so this copy is the shipped config.
+      src: configSource,
       dest: '',
+      rename: { name: 'config.json', stripBase: true as const },
     },
     {
       src: 'public/manifest.json',
