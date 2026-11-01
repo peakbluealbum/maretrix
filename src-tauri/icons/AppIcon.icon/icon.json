@@ -1,37 +1,91 @@
 {
+  "features": [
+    "refractivity",
+    "specular-location"
+  ],
   "fill-specializations": [
     {
       "value": {
-        "solid": "srgb:0.13725,0.15686,0.21569,1.00000"
+        "linear-gradient": [
+          "srgb:0.07059,0.09412,0.15686,1.00000",
+          "srgb:0.01176,0.01961,0.03922,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.15,
+            "y": 0.0
+          },
+          "stop": {
+            "x": 0.85,
+            "y": 1.0
+          }
+        }
       }
     },
     {
       "appearance": "dark",
       "value": {
-        "solid": "srgb:0.13725,0.15686,0.21569,1.00000"
+        "linear-gradient": [
+          "srgb:0.06275,0.08235,0.13725,1.00000",
+          "srgb:0.00784,0.01176,0.02353,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.15,
+            "y": 0.0
+          },
+          "stop": {
+            "x": 0.85,
+            "y": 1.0
+          }
+        }
       }
     }
   ],
   "groups": [
     {
-      "blur-material": null,
+      "name": "Ember Bloom",
       "layers": [
         {
-          "glass": false,
-          "image-name": "AppIcon-1024.png",
-          "name": "Ember Glass",
-          "opacity": 1
+          "name": "bloom",
+          "image-name": "bloom.png"
         }
       ],
-      "name": "Ember Glass",
+      "lighting": "individual",
       "shadow": {
-        "kind": "neutral",
-        "opacity": 0.0
+        "kind": "none",
+        "opacity": 0.5
       },
       "specular": false,
       "translucency": {
         "enabled": false,
         "value": 0.0
+      }
+    },
+    {
+      "name": "Glyph",
+      "layers": [
+        {
+          "name": "glyph",
+          "image-name": "glyph.png",
+          "glass": true
+        }
+      ],
+      "lighting": "individual",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.55
+      },
+      "specular": true,
+      "specular-highlight-placement": "automatic",
+      "refractivity": {
+        "enabled": true,
+        "strength": 0.6,
+        "depth": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.18
       }
     }
   ],
