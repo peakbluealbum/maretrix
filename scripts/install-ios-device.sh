@@ -91,6 +91,21 @@ fi
 echo "device : $UDID"
 echo "team   : $APPLE_DEVELOPMENT_TEAM"
 
+# Same trap as the macOS build: the committed config.json is an empty template, so a
+# plain `tauri ios build` embeds a client with no homeserver, no GIF keys and no push
+# gateway. Merge into a scratch file and point vite at it; the tracked file stays clean.
+SECRETS="${MARETRIX_SECRETS:-$HOME/.config/maretrix/config.secrets.json}"
+CONFIG_TMP=""
+if [ -f "$SECRETS" ]; then
+  CONFIG_TMP="$(mktemp -d)"
+  python3 scripts/apply-config-secrets.py --out "$CONFIG_TMP/config.json" --secrets "$SECRETS"
+  export MARETRIX_CONFIG_PATH="$CONFIG_TMP/config.json"
+else
+  echo "warning: no secrets at $SECRETS — this build ships the empty config template" >&2
+fi
+cleanup() { rm -rf "${CONFIG_TMP:-}"; }
+trap cleanup EXIT
+
 # A Personal Team cannot provision `aps-environment` or App Groups, and `tauri ios init`
 # writes both into the generated entitlements (app: aps-environment; share extension:
 # the App Group). Signing fails with "provisioning profile doesn't include …" until they
