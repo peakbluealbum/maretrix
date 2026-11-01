@@ -44,17 +44,20 @@ esac
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# The bundler renames the directory to Icon.icon and passes --app-icon Icon,
-# so mirror that exactly or the result won't match what ships.
-cp -R "$ICON_DIR" "$TMP/Icon.icon"
+# The name compiled into the car MUST equal the app's CFBundleIconName, or macOS
+# silently falls back to the legacy icon.icns and the Liquid Glass asset never renders.
+# tauri-bundler writes CFBundleIconName = AppIcon for this bundle, so compile as AppIcon.
+# (Compiling as `Icon` produced a car whose IconImageStack was named "Icon"; the Dock
+# then drew icon.icns instead, and every icon change appeared to do nothing.)
+cp -R "$ICON_DIR" "$TMP/AppIcon.icon"
 mkdir -p "$TMP/out"
 
-xcrun actool "$TMP/Icon.icon" \
+xcrun actool "$TMP/AppIcon.icon" \
   --compile "$TMP/out" \
   --output-format human-readable-text \
   --notices --warnings \
   --output-partial-info-plist "$TMP/out/assetcatalog_generated_info.plist" \
-  --app-icon Icon \
+  --app-icon AppIcon \
   --include-all-app-icons \
   --accent-color AccentColor \
   --enable-on-demand-resources NO \
