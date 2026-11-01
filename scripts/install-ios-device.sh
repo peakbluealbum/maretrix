@@ -16,10 +16,31 @@
 #
 # A free-team signature expires after 7 days; re-run this to refresh. The app's
 # data survives the re-install (same bundle id, same signing identity).
+#
+# DEBUG BY DEFAULT, and that is not a preference: the release entitlements
+# (src-tauri/ios-entitlements/sable.release.entitlements) ask for aps-environment and
+# an App Group, neither of which a free Personal Team can provision — the build fails
+# at signing. The debug entitlements are empty, which is what a free team supports.
+# Consequence: no APNs push on this build. Web push still works when the app is opened
+# once against the web client's push gateway.
+#
+# Free-team caps (Apple): 3 devices, 3 apps per device, 10 App IDs per 7 days.
+# Do NOT also sign this Apple ID into AltServer/AltStore while using Xcode installs —
+# AltServer can mint or revoke the same development certificate and break the install.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO"
+
+BUILD_ARGS=(--debug)
+UDID_ARG=""
+for arg in "$@"; do
+  case "$arg" in
+    --release) BUILD_ARGS=() ;;
+    -*) : ;;
+    *) UDID_ARG="$arg" ;;
+  esac
+done
 
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 export PATH="$HOME/.cargo/bin:$PATH"
@@ -42,7 +63,7 @@ if [ -z "${APPLE_DEVELOPMENT_TEAM:-}" ]; then
 fi
 export APPLE_DEVELOPMENT_TEAM
 
-UDID="${1:-}"
+UDID="${UDID_ARG:-}"
 if [ -z "$UDID" ]; then
   UDID="$(xcrun devicectl list devices 2>/dev/null \
     | awk '/connected/ && $0 ~ /iPhone|iPad/ {print $3}' | head -1)"
@@ -55,8 +76,8 @@ fi
 echo "device : $UDID"
 echo "team   : $APPLE_DEVELOPMENT_TEAM"
 
-echo "building (Rust target aarch64-apple-ios + Xcode release)…"
-pnpm tauri ios build 2>&1 | tail -25
+echo "building (Rust target aarch64-apple-ios + Xcode ${BUILD_ARGS[*]:-release})…"
+pnpm tauri ios build "${BUILD_ARGS[@]}" 2>&1 | tail -25
 
 IPA="$(find src-tauri/gen/apple/build -name '*.ipa' -newermt '-30 minutes' | head -1)"
 if [ -z "$IPA" ]; then
