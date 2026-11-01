@@ -7,8 +7,8 @@
     {
       "value": {
         "linear-gradient": [
-          "srgb:0.07059,0.09412,0.15686,1.00000",
-          "srgb:0.01176,0.01961,0.03922,1.00000"
+          "srgb:0.07059,0.09412,0.15686,0.82000",
+          "srgb:0.01176,0.01961,0.03922,0.82000"
         ],
         "orientation": {
           "start": {
@@ -26,8 +26,8 @@
       "appearance": "dark",
       "value": {
         "linear-gradient": [
-          "srgb:0.06275,0.08235,0.13725,1.00000",
-          "srgb:0.00784,0.01176,0.02353,1.00000"
+          "srgb:0.06275,0.08235,0.13725,0.82000",
+          "srgb:0.00784,0.01176,0.02353,0.82000"
         ],
         "orientation": {
           "start": {
@@ -67,8 +67,20 @@
       "layers": [
         {
           "name": "glyph",
-          "image-name": "glyph.png",
-          "glass": true
+          "glass": true,
+          "image-name-specializations": [
+            {
+              "value": "glyph.png"
+            },
+            {
+              "appearance": "dark",
+              "value": "glyph.png"
+            },
+            {
+              "appearance": "tinted",
+              "value": "glyph-tinted.png"
+            }
+          ]
         }
       ],
       "lighting": "individual",

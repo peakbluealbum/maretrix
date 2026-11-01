@@ -161,8 +161,37 @@ def glyph_layer(size: int) -> Image.Image:
     return out
 
 
-def _srgb(rgb: tuple[int, int, int]) -> str:
-    return "srgb:{:.5f},{:.5f},{:.5f},1.00000".format(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255)
+def glyph_tinted_layer(size: int) -> Image.Image:
+    """White silhouette of the same glyph, alpha preserved.
+
+    The Tinted icon style recolours the icon from its luminance: a scarlet glyph is
+    mid-luminance, so the system's tint renders it muddy. A white glyph takes the full
+    accent colour instead, which is the only way tinted stays as bright as its neighbours.
+    """
+    matte = Image.open(GLYPH_MATTE).convert("RGBA").getchannel("A")
+    alpha = matte.crop(matte.getbbox())
+    gh, gw = alpha.size
+    target_h = int(size * 0.615)
+    target_w = int(target_h * gw / gh)
+    g = alpha.resize((target_w, target_h), Image.LANCZOS)
+    out = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+    layer = Image.new("RGBA", (target_w, target_h), (255, 255, 255, 0))
+    layer.putalpha(g)
+    out.alpha_composite(layer, ((size - target_w) // 2, (size - target_h) // 2 + int(size * 0.012)))
+    return out
+
+
+def _srgb(rgb: tuple[int, int, int], alpha: float = 1.0) -> str:
+    return "srgb:{:.5f},{:.5f},{:.5f},{:.5f}".format(
+        rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, alpha
+    )
+
+
+# The field is not fully opaque on purpose: the icon style "Clear" is rendered by the
+# system from the document's own material, so an opaque fill reads as a flat frosted
+# tile there. 0.82 keeps Default/Dark reading exactly as approved while giving Clear
+# something to refract.
+FIELD_ALPHA = 0.82
 
 
 def icon_document() -> dict:
@@ -173,11 +202,14 @@ def icon_document() -> dict:
     refuses a document that lists a feature it does not know.
     """
     gradient = {
-        "linear-gradient": [_srgb(FIELD_TOP), _srgb(FIELD_BOTTOM)],
+        "linear-gradient": [_srgb(FIELD_TOP, FIELD_ALPHA), _srgb(FIELD_BOTTOM, FIELD_ALPHA)],
         "orientation": {"start": {"x": 0.15, "y": 0.0}, "stop": {"x": 0.85, "y": 1.0}},
     }
     gradient_dark = {
-        "linear-gradient": [_srgb((16, 21, 35)), _srgb((2, 3, 6))],
+        "linear-gradient": [
+            _srgb((16, 21, 35), FIELD_ALPHA),
+            _srgb((2, 3, 6), FIELD_ALPHA),
+        ],
         "orientation": {"start": {"x": 0.15, "y": 0.0}, "stop": {"x": 0.85, "y": 1.0}},
     }
     return {
@@ -197,7 +229,20 @@ def icon_document() -> dict:
             },
             {
                 "name": "Glyph",
-                "layers": [{"name": "glyph", "image-name": "glyph.png", "glass": True}],
+                "layers": [
+                    {
+                        # Tinted recolours by luminance; the white silhouette lets the
+                        # accent colour reach full strength. Default/Dark keep the
+                        # brand-ramp glyph.
+                        "name": "glyph",
+                        "glass": True,
+                        "image-name-specializations": [
+                            {"value": "glyph.png"},
+                            {"appearance": "dark", "value": "glyph.png"},
+                            {"appearance": "tinted", "value": "glyph-tinted.png"},
+                        ],
+                    }
+                ],
                 "lighting": "individual",
                 "shadow": {"kind": "neutral", "opacity": 0.55},
                 "specular": True,
@@ -228,6 +273,7 @@ def main() -> None:
 
     bloom_layer(1024).save(ICON_ASSETS / "bloom.png", optimize=True)
     glyph_layer(1024).save(ICON_ASSETS / "glyph.png", optimize=True)
+    glyph_tinted_layer(1024).save(ICON_ASSETS / "glyph-tinted.png", optimize=True)
     # Flat composite kept as the reference for the web tree and for any tooling
     # that still expects a single 1024 raster inside the bundle.
     art.save(ICON_ASSETS / "AppIcon-1024.png", optimize=True)
