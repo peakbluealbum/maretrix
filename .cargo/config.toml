@@ -1,0 +1,15 @@
+# Force a modern macOS deployment target for all crates and build scripts.
+#
+# Without this, rustc's per-target default (10.13 for the pre-Tahoe floor) is
+# handed to build scripts, and tauri-plugin-notifications' build.rs forwards it
+# to `swift build --triple arm64-apple-macosx10.13`. Xcode 27's Swift toolchain
+# only accepts 12.0+, so the Swift step fails hard:
+#   error: MACOSX_DEPLOYMENT_TARGET The macOS deployment target
+#   'MACOSX_DEPLOYMENT_TARGET' is set to 10.13, but the range of supported
+#   deployment target versions is 12.0 to 27.0.x.
+#
+# 13.0 matches the plugin's own fallback and clears the 12.0 floor.
+# `force = true` is required: cargo's [env] does not override a variable that is
+# already set, and rustc hands build scripts its own per-target default (10.13).
+[env]
+MACOSX_DEPLOYMENT_TARGET = { value = "13.0", force = true }
