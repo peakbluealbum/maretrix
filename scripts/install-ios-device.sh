@@ -45,6 +45,21 @@ done
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 export PATH="$HOME/.cargo/bin:$PATH"
 
+# `tauri ios build` shells out to `xcodebuild`, and that child does not always inherit
+# DEVELOPER_DIR — it then resolves through `xcode-select`, which on this host has pointed
+# at CommandLineTools and failed with "tool 'xcodebuild' requires Xcode". A PATH shim
+# makes the toolchain explicit regardless of what the CLI passes down.
+SHIM="$HOME/.local/xcode-shim"
+if [ ! -x "$SHIM/xcodebuild" ]; then
+  mkdir -p "$SHIM"
+  printf '%s\n' \
+    '#!/bin/sh' \
+    'export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"' \
+    'exec /usr/bin/xcodebuild "$@"' > "$SHIM/xcodebuild"
+  chmod +x "$SHIM/xcodebuild"
+fi
+export PATH="$SHIM:$PATH"
+
 if [ ! -d "src-tauri/gen/apple/maretrix.xcodeproj" ]; then
   echo "error: Xcode project missing — run: pnpm tauri ios init --ci" >&2
   exit 1
