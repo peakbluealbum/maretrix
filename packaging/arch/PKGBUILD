@@ -46,9 +46,14 @@ sha256sums=('SKIP')
 
 prepare() {
   cd "$pkgname-$_gh_tag"
-  # The committed manifest is a template with an empty homeserver list and no provider keys.
-  # Keep it that way: this is a package, not daiwascarlet's private build.
-  test -f config.json || cp config.example.json config.json
+  # config.json is committed as the empty template (no homeserver, no provider keys) — that is
+  # exactly what a distro package should ship, so nothing to merge here. Only assert that the
+  # release tarball really carries it: the app reads it at runtime, and a missing file would
+  # surface as a confusing blank first-run screen instead of a build error.
+  if [ ! -f config.json ]; then
+    echo "error: config.json is missing from the source tarball" >&2
+    return 1
+  fi
 }
 
 build() {
