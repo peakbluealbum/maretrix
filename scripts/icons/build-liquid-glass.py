@@ -194,6 +194,38 @@ def _srgb(rgb: tuple[int, int, int], alpha: float = 1.0) -> str:
 FIELD_ALPHA = 0.82
 
 
+def squircle_mask(size: int, radius_ratio: float = 0.5, power: float = 5.0) -> Image.Image:
+    """Antialiased superellipse mask.
+
+    Linux desktops draw the icon PNG as-is — they do not apply the macOS/Windows shape
+    mask, so a full-bleed square reads as a hard-edged tile in the taskbar and launcher.
+    Masking it here gives Linux the same silhouette every other platform gets for free.
+    """
+    ss = 4  # supersample factor for smooth edges
+    big = size * ss
+    mask = Image.new("L", (big, big), 0)
+    px = mask.load()
+    half = big / 2.0
+    radius = half * radius_ratio
+    exp = 2.0 / power
+    for y in range(big):
+        dy = abs((y + 0.5) - half)
+        for x in range(big):
+            dx = abs((x + 0.5) - half)
+            # superellipse: (|x|/r)^n + (|y|/r)^n <= 1
+            if (dx / radius) ** power + (dy / radius) ** power <= 1.0:
+                px[x, y] = 255
+    return mask.resize((size, size), Image.LANCZOS)
+
+
+def masked(art: Image.Image, size: int) -> Image.Image:
+    """Scale the art and punch the squircle shape out of its alpha."""
+    scaled = art.resize((size, size), Image.LANCZOS)
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    out.paste(scaled, (0, 0), squircle_mask(size))
+    return out
+
+
 def icon_document() -> dict:
     """Icon Composer 2 document: system-rendered field + glass glyph.
 
@@ -293,6 +325,20 @@ def main() -> None:
     for n in CIRCULAR_SIZES:
         art.resize((n, n), Image.LANCZOS).save(CIRCULAR_DIR / f"logo-{n}x{n}.png", optimize=True)
     art.resize((512, 512), Image.LANCZOS).save(REPO / "public" / "favicon.png", optimize=True)
+
+    # Linux gets *masked* PNGs: X11/Wayland desktops draw the bitmap verbatim, so the
+    # unmasked square looked like a hard-edged tile in the launcher and taskbar. Tauri also
+    # takes the first PNG in `bundle.icon` as the window icon, which is why a 32x32 entry
+    # first made it look blurry — keep the 512 first and let the WM downscale.
+    LINUX_DIR = REPO / "src-tauri" / "icons" / "linux"
+    LINUX_DIR.mkdir(parents=True, exist_ok=True)
+    for n in (32, 48, 64, 128, 256, 512):
+        masked(art, n).save(LINUX_DIR / f"maretrix-{n}.png", optimize=True)
+    masked(art, 512).save(REPO / "src-tauri" / "icons" / "icon.png", optimize=True)
+    masked(art, 512).save(REPO / "src-tauri" / "icons" / "512x512.png", optimize=True)
+    masked(art, 256).save(REPO / "src-tauri" / "icons" / "128x128@2x.png", optimize=True)
+    masked(art, 128).save(REPO / "src-tauri" / "icons" / "128x128.png", optimize=True)
+    masked(art, 32).save(REPO / "src-tauri" / "icons" / "32x32.png", optimize=True)
 
     # Keep a copy next to the bundle so CI can diff the compiled result.
     shutil.copy2(ICON_ASSETS / "AppIcon-1024.png", REPO / "src-tauri" / "icons" / "AppIcon-1024.png")

@@ -37,6 +37,14 @@ export const messageList = style({
   overflowY: 'scroll',
   scrollbarGutter: 'stable',
   overflowAnchor: 'none',
+  // WKWebView (Tauri iOS) can leave the visible tiles of a freshly mounted virtual list
+  // unpainted — the native window colour shows through the timeline until any user
+  // interaction forces an invalidation. virtua's own docs blame imperative scrollTop
+  // updates during mount (inokawa/virtua#362), which is exactly what the initial
+  // scroll-to-bottom does. Promoting the scroller to its own compositing layer hands tile
+  // rasterisation to the compositor, which paints the range on the next frame instead of
+  // waiting for a scroll/tap. Cost: one extra layer for the timeline.
+  transform: 'translateZ(0)',
 
   '@supports': {
     '(-moz-appearance: none)': {

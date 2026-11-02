@@ -271,7 +271,11 @@ jobs:
           releaseName: ${{ github.ref_type == 'tag' && format('Maretrix {0}', github.ref_name) || '' }}
           releaseDraft: false
           includeUpdaterJson: true
-          args: --features wry,updater,matrix-crypto -- --no-default-features
+          # deb/rpm only. The AppImage bundles a WebKitGTK built on Ubuntu 22.04 that
+          # aborts with EGL_BAD_PARAMETER on Mesa 26 — a blank window, with the
+          # WebProcess dead — on every Arch-based system we tested. Users on those
+          # distros get the Arch package below, built against their own WebKitGTK.
+          args: --bundles deb,rpm --features wry,updater,matrix-crypto -- --no-default-features
       # See the macOS job: tauri-action cannot upload artifacts, and a dispatch run
       # has no tag to attach to. Without this, a test run leaves nothing behind.
       - name: Upload bundles
@@ -282,9 +286,67 @@ jobs:
           path: |
             src-tauri/target/**/release/bundle/deb/*.deb
             src-tauri/target/**/release/bundle/rpm/*.rpm
-            src-tauri/target/**/release/bundle/appimage/*
             src-tauri/target/**/release/bundle/**/*.sig
           if-no-files-found: error
+
+  # Arch-based distros are first-class here, not an afterthought. Upstream ships .deb and
+  # AppImage; the AppImage is the reason the Linux build opened a blank navy window on
+  # Artix — it bundles a WebKitGTK from an Ubuntu 22.04 build that cannot create an EGL
+  # display against Mesa 26 (verified on a real Plasma session: same app, system WebKitGTK
+  # 2.54, renders fine with no perf problem). So Arch gets a real package, built by
+  # makepkg against the distro's own WebKitGTK.
+  #
+  # The PKGBUILD in packaging/arch is the AUR submission as well; this job proves it builds.
+  linux-arch:
+    name: Linux (Arch package)
+    needs: [create-release]
+    if: ${{ !cancelled() && needs.create-release.result != 'failure' && (github.event_name == 'push' || contains(github.event.inputs.targets, 'linux')) }}
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            git nodejs pnpm rust clang libgit2 webkit2gtk-4.1 gtk3 libsoup3 \
+            gst-plugins-base gst-plugins-good gst-plugins-bad-libs pkgconf openssl
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build the package
+        run: |
+          set -euo pipefail
+          useradd -m builder
+          work=/tmp/pkgbuild
+          mkdir -p "$work"
+          cp packaging/arch/PKGBUILD packaging/arch/maretrix.desktop "$work"/
+          cd "$work"
+          # makepkg expects to download the release tarball; hand it the checkout instead so
+          # the job builds exactly the commit being released (and works before the archive
+          # endpoint is warm).
+          tag="$(sed -n "s/^_gh_tag='\(.*\)'/\1/p" PKGBUILD)"
+          git -C "$GITHUB_WORKSPACE" archive --format=tar.gz \
+            --prefix="maretrix-$tag/" -o "$work/maretrix-$tag.tar.gz" HEAD
+          chown -R builder:builder "$work"
+          su builder -c "cd $work && makepkg --noconfirm --nodeps"
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp "$work"/*.pkg.tar.zst "$GITHUB_WORKSPACE/out/"
+          ls -l "$GITHUB_WORKSPACE/out"
+
+      - name: Upload package artifact
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: maretrix-arch-x86_64
+          path: out/*.pkg.tar.zst
+          if-no-files-found: error
+
+      - name: Attach to the release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" out/*.pkg.tar.zst --clobber
 
   # DISPATCH-ONLY AND CURRENTLY BROKEN — do not add `windows` to a tagged
   # release or the dispatch default. The build fails to compile:

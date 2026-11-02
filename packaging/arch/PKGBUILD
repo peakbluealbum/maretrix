@@ -72,8 +72,10 @@ package() {
 
   install -Dm755 src-tauri/target/release/maretrix "$pkgdir/usr/bin/maretrix"
 
-  install -Dm644 src-tauri/icons/128x128.png \
-    "$pkgdir/usr/share/icons/hicolor/128x128/apps/maretrix.png"
+  for s in 32 48 64 128 256 512; do
+    install -Dm644 "src-tauri/icons/linux/maretrix-$s.png" \
+      "$pkgdir/usr/share/icons/hicolor/${s}x${s}/apps/maretrix.png"
+  done
   install -Dm644 packaging/arch/maretrix.desktop \
     "$pkgdir/usr/share/applications/maretrix.desktop"
 
