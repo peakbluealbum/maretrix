@@ -251,7 +251,9 @@ def icon_document() -> dict:
                 "translucency": {"enabled": True, "value": 0.18},
             },
         ],
-        "supported-platforms": {"squares": ["macOS"]},
+        "supported-platforms": {
+            "squares": ["macOS", "iOS"]
+        },
     }
 
 
