@@ -42,6 +42,7 @@ import {
   shouldShowRedactionTimelineEvent,
 } from '$utils/room/relations';
 import { getMemberDisplayName } from '$utils/room/display';
+import { isMobileTauri } from '$utils/platform';
 import { useRoomNavigate } from '$hooks/useRoomNavigate';
 import { useSlidingSyncRoomLoading } from '$hooks/useSlidingSyncActiveRoom';
 import { useOpenUserRoomProfile } from '$state/hooks/userRoomProfile';
@@ -523,6 +524,32 @@ export function RoomTimeline({
     observer.observe(messageListEl, { childList: true });
     return () => observer.disconnect();
   }, []);
+
+  // WKWebView (Tauri iOS) does not always rasterise a freshly mounted virtual list:
+  // switching rooms remounts the VList (it is keyed by room id) and the new tiles stay
+  // unpainted — the native window colour shows through — until some user interaction
+  // forces a repaint. A 1px scroll bump on the frame after the initial scroll settles
+  // invalidates the tiles and makes WebKit paint immediately. Android is included
+  // because the bump is harmless there; it is skipped on desktop to avoid scroll jitter.
+  useLayoutEffect(() => {
+    if (!isReady || !isMobileTauri()) return () => {};
+    const scroller = scrollElRef.current;
+    if (!scroller) return () => {};
+
+    let inner: number | undefined;
+    const outer = requestAnimationFrame(() => {
+      const top = scroller.scrollTop;
+      scroller.scrollTop = top + 1;
+      inner = requestAnimationFrame(() => {
+        scroller.scrollTop = top;
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(outer);
+      if (inner !== undefined) cancelAnimationFrame(inner);
+    };
+  }, [isReady, room.roomId]);
 
   const jumpToEvent = useCallback(
     (id: string) => {
