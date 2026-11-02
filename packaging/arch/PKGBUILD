@@ -1,0 +1,82 @@
+# Maintainer: Maretrix <peakbluealbum@users.noreply.github.com>
+#
+# Arch/Artix source package. Builds the app against the DISTRO's WebKitGTK instead of
+# shipping one, which matters for two reasons:
+#
+#   1. The AppImage bundles a libwebkit2gtk-4.1 from an Ubuntu 22.04 build. On Mesa 26 it
+#      aborts during EGL display creation ("Could not create default EGL display:
+#      EGL_BAD_PARAMETER"), so the window is blank and the WebProcess is dead — the bug
+#      that made the Linux build unusable on Artix. Linking the system WebKitGTK, which is
+#      built against the same Mesa, avoids that class of breakage entirely.
+#   2. Bundled engines also mean the user never gets security updates for the browser
+#      engine rendering their Matrix session. A system dep does.
+#
+# Usage:
+#   makepkg -si              # from this directory
+#   makepkg --printsrcinfo > .SRCINFO   # for an AUR submission
+#
+# Note on config.json: a distro package ships the empty template, so the first run asks the
+# user for their homeserver. That is deliberate — baking daiwascarlet.com credentials into a
+# public package would hand out the Tenor/GIF key to anyone who unpacks it.
+
+pkgname=maretrix
+pkgver=1.1.0rc2
+pkgrel=1
+pkgdesc='Matrix client (daiwascarlet fork of Sable) — Tauri desktop app'
+arch=('x86_64' 'aarch64')
+url='https://daiwascarlet.com'
+license=('AGPL-3.0-only')
+depends=(
+  'webkit2gtk-4.1'
+  'gtk3'
+  'libsoup3'
+  'glib2'
+  'gst-plugins-base'
+  'gst-plugins-good'
+  'gst-plugins-bad-libs'
+  'xorg-xwayland'
+)
+makedepends=('rust' 'cargo' 'nodejs' 'pnpm' 'clang' 'libgit2' 'pkgconf')
+options=('!lto')
+# The release tag keeps the dash the PKGBUILD version drops (v1.1.0-rc2 vs 1.1.0rc2).
+# Bump both together.
+_gh_tag='v1.1.0-rc2'
+source=("$pkgname-$_gh_tag.tar.gz::https://github.com/peakbluealbum/maretrix/archive/refs/tags/$_gh_tag.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "$pkgname-$_gh_tag"
+  # The committed manifest is a template with an empty homeserver list and no provider keys.
+  # Keep it that way: this is a package, not daiwascarlet's private build.
+  test -f config.json || cp config.example.json config.json
+}
+
+build() {
+  cd "$pkgname-$_gh_tag"
+
+  export CARGO_NET_RETRY=5
+  export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-stable}"
+
+  pnpm install --frozen-lockfile
+  # vite writes dist/ (and copies config.json into it); Tauri embeds dist at compile time.
+  pnpm build
+
+  cd src-tauri
+  # Default features are wry,updater,matrix-crypto,geolocation. No CEF: it needs a Chromium
+  # download and was dropped from this fork.
+  cargo build --release --locked
+}
+
+package() {
+  cd "$pkgname-$_gh_tag"
+
+  install -Dm755 src-tauri/target/release/maretrix "$pkgdir/usr/bin/maretrix"
+
+  install -Dm644 src-tauri/icons/128x128.png \
+    "$pkgdir/usr/share/icons/hicolor/128x128/apps/maretrix.png"
+  install -Dm644 packaging/arch/maretrix.desktop \
+    "$pkgdir/usr/share/applications/maretrix.desktop"
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 docs/PRIVACY.md "$pkgdir/usr/share/doc/$pkgname/PRIVACY.md"
+}
