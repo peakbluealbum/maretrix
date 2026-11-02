@@ -38,7 +38,7 @@ env:
   CARGO_TERM_COLOR: always
   # Matches devEngines in package.json and the Dockerfile pin.
   NODE_VERSION: '24.18.0'
-  RUST_VERSION: '1.97.1'
+  RUST_VERSION: '1.99.1'
 
 jobs:
   # Creates the release up front so parallel platform jobs attach to one release
