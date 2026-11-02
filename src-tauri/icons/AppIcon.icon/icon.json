@@ -103,7 +103,8 @@
   ],
   "supported-platforms": {
     "squares": [
-      "macOS"
+      "macOS",
+      "iOS"
     ]
   }
 }

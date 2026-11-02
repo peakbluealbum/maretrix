@@ -42,6 +42,7 @@ import {
   shouldShowRedactionTimelineEvent,
 } from '$utils/room/relations';
 import { getMemberDisplayName } from '$utils/room/display';
+import { isMobileTauri } from '$utils/platform';
 import { useRoomNavigate } from '$hooks/useRoomNavigate';
 import { useSlidingSyncRoomLoading } from '$hooks/useSlidingSyncActiveRoom';
 import { useOpenUserRoomProfile } from '$state/hooks/userRoomProfile';
@@ -523,6 +524,59 @@ export function RoomTimeline({
     observer.observe(messageListEl, { childList: true });
     return () => observer.disconnect();
   }, []);
+
+  // iOS-only measurement fix. On the device, `document.querySelectorAll('[data-message-id]').length`
+  // returns 1 right after a room switch and jumps to the full set the moment anything touches the
+  // page — so virtua rendered a single item, it is not a paint bug. That means its first measurement
+  // of the scroll container was far smaller than the real viewport (the flex chain has not resolved
+  // to a pixel height yet when the VList mounts), and nothing re-measures it until a user interaction
+  // resizes something. Two things force that re-measure: pin the scroller to the wrapper's measured
+  // height, and nudge the scroller's width by 1px once so its ResizeObserver fires.
+  useLayoutEffect(() => {
+    if (!isMobileTauri()) return () => {};
+    const wrap = messageListRef.current;
+    if (!wrap) return () => {};
+
+    let raf = 0;
+    let inner = 0;
+
+    const resolveScroller = () =>
+      wrap.firstElementChild instanceof HTMLElement ? (wrap.firstElementChild as HTMLElement) : null;
+
+    const pinHeight = () => {
+      const scroller = resolveScroller();
+      const height = wrap.clientHeight;
+      if (!scroller || height <= 0) return;
+      if (Math.abs(scroller.clientHeight - height) > 1) {
+        scroller.style.height = `${height}px`;
+      }
+    };
+
+    const nudgeWidth = () => {
+      const scroller = resolveScroller();
+      if (!scroller) return;
+      const previous = scroller.style.width;
+      scroller.style.width = 'calc(100% - 1px)';
+      inner = requestAnimationFrame(() => {
+        scroller.style.width = previous;
+      });
+    };
+
+    pinHeight();
+    raf = requestAnimationFrame(() => {
+      pinHeight();
+      nudgeWidth();
+    });
+
+    const observer = new ResizeObserver(() => pinHeight());
+    observer.observe(wrap);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (inner) cancelAnimationFrame(inner);
+      observer.disconnect();
+    };
+  }, [isReady, room.roomId]);
 
   const jumpToEvent = useCallback(
     (id: string) => {
