@@ -262,6 +262,15 @@ jobs:
           else
             echo "::warning::CONFIG_SECRETS_JSON absent - this build carries the empty config.json"
           fi
+      - name: Debian-safe version
+        # Tauri 2.12's deb/rpm bundler validates the version string and rejects '-', which
+        # every prerelease has (rc1 built on 2.11, which did not validate). Debian spells a
+        # prerelease with '~', so derive that form instead of renaming the release.
+        run: |
+          v=$(node -p "require('./package.json').version")
+          printf '{"version":"%s"}\n' "${v/-/\~}" > /tmp/deb-version.json
+          cat /tmp/deb-version.json
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -275,7 +284,7 @@ jobs:
           # aborts with EGL_BAD_PARAMETER on Mesa 26 — a blank window, with the
           # WebProcess dead — on every Arch-based system we tested. Users on those
           # distros get the Arch package below, built against their own WebKitGTK.
-          args: --bundles deb,rpm --features wry,updater,matrix-crypto -- --no-default-features
+          args: --bundles deb,rpm --config /tmp/deb-version.json --features wry,updater,matrix-crypto -- --no-default-features
       # See the macOS job: tauri-action cannot upload artifacts, and a dispatch run
       # has no tag to attach to. Without this, a test run leaves nothing behind.
       - name: Upload bundles
@@ -572,6 +581,17 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+      # The app icon is an Icon Composer document, which only Xcode 26.0+ / actool 26+
+      # can compile; older actool aborts with
+      # "-[__NSPlaceholderArray initWithObjects:count:]: attempt to insert nil object".
+      # Select the newest Xcode installed on the image instead of trusting the default.
+      - name: Select the newest Xcode
+        run: |
+          set -euo pipefail
+          newest=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          echo "selecting: $newest"
+          sudo xcode-select -s "$newest"
+          xcodebuild -version
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
