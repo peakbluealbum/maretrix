@@ -268,7 +268,7 @@ jobs:
         # prerelease with '~', so derive that form instead of renaming the release.
         run: |
           v=$(node -p "require('./package.json').version")
-          printf '{"version":"%s"}\n' "${v/-/\~}" > /tmp/deb-version.json
+          printf '{"version":"%s"}\n' "${v/-/+}" > /tmp/deb-version.json
           cat /tmp/deb-version.json
 
       - uses: tauri-apps/tauri-action@v0
@@ -334,6 +334,9 @@ jobs:
           # makepkg expects to download the release tarball; hand it the checkout instead so
           # the job builds exactly the commit being released (and works before the archive
           # endpoint is warm).
+          # The checkout is owned by the runner user; root-owned git refuses to read it
+          # ("detected dubious ownership") unless the path is declared safe.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tag="$(sed -n "s/^_gh_tag='\(.*\)'/\1/p" PKGBUILD)"
           git -C "$GITHUB_WORKSPACE" archive --format=tar.gz \
             --prefix="maretrix-$tag/" -o "$work/maretrix-$tag.tar.gz" HEAD

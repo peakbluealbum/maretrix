@@ -68,13 +68,20 @@ targets:
     platform: iOS
     sources:
       - path: Sources
-      - path: Assets.xcassets
-      # The Icon Composer document IS the iOS app icon (Xcode 26+): xcodegen emits
-      # `wrapper.icon` into Resources and Xcode compiles it with actool, which produces
-      # both the Liquid Glass IconImageStack (iOS 26+) and the loose legacy PNGs below.
-      # Do not also ship an AppIcon set in an .xcassets — one Assets.car per bundle,
-      # and a duplicate name silently drops the loser.
-      - path: ../../icons/AppIcon.icon
+      # The app icon is a PRECOMPILED Assets.car, exactly like the macOS bundle. Letting
+      # Xcode compile the Icon Composer document is not viable on CI: the newest Xcode on
+      # macos-latest is 26.6 and its actool aborts with
+      # `-[__NSPlaceholderArray initWithObjects:count:]: attempt to insert nil object`
+      # (tauri#15315) — the same crash that forced the macOS workaround. These three files
+      # come from `scripts/icons/build-ios-icon.sh` (Xcode 27.2 actool) and are checked in.
+      # `Assets.xcassets` must NOT also be a source: it contains only the legacy app icon,
+      # and two asset catalogs both claiming AppIcon is how you get a missing icon.
+      - path: ../../icons/ios/prebuilt/Assets.car
+        buildPhase: resources
+      - path: "../../icons/ios/prebuilt/AppIcon60x60@2x.png"
+        buildPhase: resources
+      - path: "../../icons/ios/prebuilt/AppIcon76x76@2x~ipad.png"
+        buildPhase: resources
       - path: Externals
         buildPhase: none
       - path: {{app.name}}_iOS
@@ -114,6 +121,20 @@ targets:
         CFBundleShortVersionString: {{apple.bundle-version-short}}
         CFBundleVersion: "{{apple.bundle-version}}"
         NSPhotoLibraryAddUsageDescription: Maretrix saves images you download to your photo library.
+        # Written by actool when it compiles an app icon; we ship a precompiled car instead,
+        # so the keys are declared here (values copied from icons/ios/prebuilt/actool-partial.plist).
+        CFBundleIconName: AppIcon
+        CFBundleIcons:
+          CFBundlePrimaryIcon:
+            CFBundleIconFiles:
+              - AppIcon60x60
+            CFBundleIconName: AppIcon
+        CFBundleIcons~ipad:
+          CFBundlePrimaryIcon:
+            CFBundleIconFiles:
+              - AppIcon60x60
+              - AppIcon76x76
+            CFBundleIconName: AppIcon
         # iOS 27 (SDK 26+) terminates any app that has not adopted the UIScene
         # lifecycle: EXC_BREAKPOINT in
         # _UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption, before any
