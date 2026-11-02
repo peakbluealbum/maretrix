@@ -44,6 +44,11 @@ done
 
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 export PATH="$HOME/.cargo/bin:$PATH"
+# iOS must build with rustup's toolchain (Homebrew's rust ships no aarch64-apple-ios std),
+# while macOS builds use the Homebrew one. Two rustc versions sharing `target/` leave host
+# proc-macro artefacts the other toolchain cannot load — the build then dies with
+# "can't find crate for `zerofrom_derive`". Keep the iOS artefacts in their own directory.
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO/src-tauri/target-ios}"
 
 # `tauri ios build` shells out to `xcodebuild`, and that child does not always inherit
 # DEVELOPER_DIR — it then resolves through `xcode-select`, which on this host has pointed
