@@ -70,3 +70,6 @@ config.secrets.json
 src-tauri/gen/android/keystore.properties
 *.jks
 *.keystore
+
+# Per-platform cargo target dirs (iOS builds use rustup toolchain separately)
+src-tauri/target-*/
