@@ -23,7 +23,8 @@ import buildConfig from './build.config';
 //   MARETRIX_CONFIG_PATH=/tmp/…/config.json pnpm tauri build
 // scripts/build-macos-local.sh does exactly that. Unset, behaviour is unchanged (CI path).
 const configSource = process.env.MARETRIX_CONFIG_PATH ?? path.resolve(__dirname, 'config.json');
-const appConfig = JSON.parse(fs.readFileSync(configSource, 'utf8')) as Record<string, unknown>;
+const configText = fs.readFileSync(configSource, 'utf8');
+const appConfig = JSON.parse(configText) as Record<string, unknown>;
 
 const packageJson = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')
@@ -92,13 +93,6 @@ const copyFiles = {
       src: 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
       dest: '.',
       rename: { name: 'pdf.worker.min.js', stripBase: true as const },
-    },
-    {
-      // Always lands as dist/config.json: the client fetches `${BASE_URL}/config.json` at
-      // runtime and Tauri embeds dist/ into the binary, so this copy is the shipped config.
-      src: configSource,
-      dest: '',
-      rename: { name: 'config.json', stripBase: true as const },
     },
     {
       src: 'public/manifest.json',
@@ -215,6 +209,18 @@ export default defineConfig(({ command }) => {
     },
     plugins: [
       serverMatrixSdkCryptoWasm(),
+      {
+        // Always lands as dist/config.json: the client fetches `${BASE_URL}/config.json` at
+        // runtime and Tauri embeds dist/ into the binary, so this is the shipped config.
+        // Emitted as a bundle asset instead of copied: vite-plugin-static-copy globs its
+        // `src`, and an absolute Windows path (D:\a\...\config.json) is not a valid glob —
+        // that is what failed the Windows job with "No file was found to copy".
+        name: 'maretrix-config',
+        apply: 'build',
+        generateBundle() {
+          this.emitFile({ type: 'asset', fileName: 'config.json', source: configText });
+        },
+      },
       viteStaticCopy(copyFiles),
       vanillaExtractPlugin({ identifiers: 'debug' }),
       wasm() as PluginOption,
