@@ -67,9 +67,15 @@ build() {
   pnpm build
 
   cd src-tauri
+  # `custom-protocol` is NOT optional. Tauri's CLI adds `--features tauri/custom-protocol` for
+  # release builds; without it the binary does not embed the frontend and tries to load the
+  # dev server instead — the app opens a blank window against http://localhost:8080. That is
+  # exactly what the first rc2 Arch package shipped (35 MB binary vs 52 MB for the .deb, the
+  # missing 17 MB being the embedded assets).
+  #
   # Default features are wry,updater,matrix-crypto,geolocation. No CEF: it needs a Chromium
   # download and was dropped from this fork.
-  cargo build --release --locked
+  cargo build --release --locked --features custom-protocol
 }
 
 package() {
