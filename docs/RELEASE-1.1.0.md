@@ -1,8 +1,8 @@
-# Maretrix 1.1.0-rc2
+# Maretrix 1.1.0
 
-Second release candidate of Maretrix, the daiwascarlet fork of Sable. This cycle was almost
+First stable release of Maretrix, the daiwascarlet fork of Sable. This cycle was almost
 entirely about **shipping the native clients properly** — and about making Linux installable at
-all.
+all. Every platform now has a native package, Windows included.
 
 ## What changed
 
@@ -30,19 +30,14 @@ all.
 
 | Platform | File | Install |
 |---|---|---|
-| **macOS** (Apple silicon + Intel) | `Maretrix_1.1.0-rc2_universal.dmg` | Open the DMG, drag to Applications. The app is ad-hoc signed, not notarised: first launch needs right-click → **Open**, or `xattr -dr com.apple.quarantine /Applications/Maretrix.app` |
-| **Arch / Artix / Manjaro / EndeavourOS** | `maretrix-1.1.0rc2-1-x86_64.pkg.tar.zst` | `sudo pacman -U maretrix-1.1.0rc2-1-x86_64.pkg.tar.zst` |
-| **Debian / Ubuntu / Mint / Pop!\_OS** | `Maretrix_1.1.0+rc2_amd64.deb` | `sudo apt install ./Maretrix_1.1.0+rc2_amd64.deb` |
-| **Fedora / openSUSE** | `Maretrix-1.1.0+rc2-1.x86_64.rpm` | `sudo dnf install ./Maretrix-1.1.0+rc2-1.x86_64.rpm` |
+| **macOS** (Apple silicon + Intel) | `Maretrix_1.1.0_universal.dmg` | Open the DMG, drag to Applications. The app is ad-hoc signed, not notarised: first launch needs right-click → **Open**, or `xattr -dr com.apple.quarantine /Applications/Maretrix.app` |
+| **Arch / Artix / Manjaro / EndeavourOS** | `maretrix-1.1.0-1-x86_64.pkg.tar.zst` | `sudo pacman -U maretrix-1.1.0-1-x86_64.pkg.tar.zst` |
+| **Debian / Ubuntu / Mint / Pop!\_OS** | `Maretrix_1.1.0_amd64.deb` | `sudo apt install ./Maretrix_1.1.0_amd64.deb` |
+| **Fedora / openSUSE** | `Maretrix-1.1.0-1.x86_64.rpm` | `sudo dnf install ./Maretrix-1.1.0-1.x86_64.rpm` |
+| **Windows 10/11** | `Maretrix_1.1.0_x64-setup.exe` | Run the installer (NSIS, per-user) |
 | **Android** | `app-universal-release.apk` | Sideload; allow install from unknown sources |
 | **iOS** | `maretrix-unsigned.ipa` | Unsigned: sign with your own Apple ID (Xcode, AltStore/AltServer or Sideloadly). See below |
 | ARM64 Linux | `..._arm64.deb`, `...aarch64.rpm` | as above |
-
-> The Linux packages are versioned `1.1.0+rc2` rather than `1.1.0-rc2`: the deb/rpm bundler
-> rejects the hyphen. Your package manager still orders it as the same version.
-
-**Arch users:** the package in this release was rebuilt after a packaging bug that left the app
-pointing at a development server (a blank window). If your copy is older, re-download it.
 
 ## First run
 
@@ -71,15 +66,14 @@ off in this build even though the app supports them.
 
 ## Known issues
 
-- **iOS: the timeline can stay blank for a moment after switching channels** until you scroll
-  or tap. Cosmetic, and it clears itself on any interaction.
+- **iOS / WebKit: the timeline can stay blank for a moment after switching channels** until you
+  scroll or tap, and flinging to the bottom can be jittery. This is inherited from upstream and
+  reproduces in the iOS PWA as well; it is the whole of 1.1.1, not an iOS packaging problem.
 - **Linux on Arch-based systems: voice/video calls do not work.** The distro's
   `webkit2gtk-4.1` is compiled without WebRTC (`ENABLE_WEB_RTC` is not passed by the PKGBUILD),
   so `RTCPeerConnection` does not exist in the engine — nothing the app can enable. Debian and
   Ubuntu are believed to enable it, but that has not been measured on this build; verify with a
   call before relying on it, or use the web client.
-- **Prerelease builds log an updater error on startup** ("update endpoint did not respond"):
-  GitHub has no `latest.json` for a release candidate. Harmless.
 - **macOS builds are ad-hoc signed** — no paid Apple Developer account, so no notarisation.
 
 ## Full details

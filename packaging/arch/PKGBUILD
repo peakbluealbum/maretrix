@@ -20,7 +20,7 @@
 # public package would hand out the Tenor/GIF key to anyone who unpacks it.
 
 pkgname=maretrix
-pkgver=1.1.0rc2
+pkgver=1.1.0
 pkgrel=1
 pkgdesc='Matrix client (daiwascarlet fork of Sable) — Tauri desktop app'
 arch=('x86_64' 'aarch64')
@@ -38,9 +38,10 @@ depends=(
 )
 makedepends=('rust' 'cargo' 'nodejs' 'pnpm' 'clang' 'libgit2' 'pkgconf')
 options=('!lto')
-# The release tag keeps the dash the PKGBUILD version drops (v1.1.0-rc2 vs 1.1.0rc2).
+# The release tag keeps the dash the PKGBUILD version drops (v1.1.0 is identical here,
+# but a future -rc tag would not be).
 # Bump both together.
-_gh_tag='v1.1.0-rc2'
+_gh_tag='v1.1.0'
 source=("$pkgname-$_gh_tag.tar.gz::https://github.com/peakbluealbum/maretrix/archive/refs/tags/$_gh_tag.tar.gz")
 sha256sums=('SKIP')
 

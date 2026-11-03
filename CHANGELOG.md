@@ -3,9 +3,18 @@
 This fork versions independently of upstream, starting at 1.0.0. Upstream's own changelog lives at
 <https://github.com/SableClient/Sable/blob/dev/CHANGELOG.md>.
 
-## 1.1.0-rc2
+## 1.1.0
 
-Second release candidate. Focus: shipping the native clients properly, and making Linux installable at all.
+Focus: shipping the native clients properly, and making Linux installable at all. This entry
+covers the whole rc1 -> rc2 -> 1.1.0 line; the release candidates were never published as stable.
+
+### Windows
+
+- **Windows ships again.** Two blockers, both independent of the Tauri version mismatch that had
+  been blamed: `vite-plugin-static-copy` was given an absolute path, which is not a valid glob on
+  Windows, so the frontend build died before Rust ran; and the WiX/MSI target rejects a
+  non-numeric pre-release identifier (`1.1.0-rc2`). The config is now emitted as a bundle asset
+  instead of copied, and Windows bundles NSIS only.
 
 ### macOS
 
