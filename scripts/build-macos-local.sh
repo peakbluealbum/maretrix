@@ -48,7 +48,16 @@ else
 fi
 
 echo "build: MARETRIX_CONFIG_PATH=$MARETRIX_CONFIG_PATH"
-pnpm tauri build "$@"
+# Default to a universal binary: the release ships one DMG for both architectures and the
+# updater advertises darwin-aarch64 and darwin-x86_64 against the same tarball. Building the
+# host arch alone silently produces an aarch64-only DMG (1.1.0 did exactly that once).
+BUILD_ARGS=("$@")
+case " $* " in
+  *" --target "*) : ;;
+  *) BUILD_ARGS+=(--target universal-apple-darwin) ;;
+esac
+
+pnpm tauri build "${BUILD_ARGS[@]}"
 
 # The frontend build copies the merged config into dist/, and Tauri embeds dist/.
 DIST_CONFIG="dist/config.json"
