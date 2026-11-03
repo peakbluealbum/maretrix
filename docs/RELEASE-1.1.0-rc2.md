@@ -35,7 +35,7 @@ all.
 | **Debian / Ubuntu / Mint / Pop!\_OS** | `Maretrix_1.1.0+rc2_amd64.deb` | `sudo apt install ./Maretrix_1.1.0+rc2_amd64.deb` |
 | **Fedora / openSUSE** | `Maretrix-1.1.0+rc2-1.x86_64.rpm` | `sudo dnf install ./Maretrix-1.1.0+rc2-1.x86_64.rpm` |
 | **Android** | `app-universal-release.apk` | Sideload; allow install from unknown sources |
-| **iOS** | — | No IPA in this release — see below |
+| **iOS** | `maretrix-unsigned.ipa` | Unsigned: sign with your own Apple ID (Xcode, AltStore/AltServer or Sideloadly). See below |
 | ARM64 Linux | `..._arm64.deb`, `...aarch64.rpm` | as above |
 
 > The Linux packages are versioned `1.1.0+rc2` rather than `1.1.0-rc2`: the deb/rpm bundler
@@ -52,20 +52,22 @@ binaries must not carry credentials.
 
 ## iOS
 
-There is no IPA attached this time. The app itself is fine — it was built, installed and tested
-on an iPhone 14 Pro Max (login, device verification, calls, GIF search, file and photo upload).
-What failed is only the *release-profile* packaging step, on a build-tool incompatibility
-between Swift 6 and the current Xcode. Tracked as the first item for 1.1.0.
+`maretrix-unsigned.ipa` is **unsigned** — it is not tied to any Apple ID, so you sign it with
+your own. Tested on an iPhone 14 Pro Max / iOS 27.2: login, device verification, calls, GIF
+search, file and photo upload all work.
 
-To build it yourself you need a Mac with Xcode and a free Apple ID:
-
+With a Mac and Xcode: open the IPA's app in Xcode, or build from source —
 ```bash
 pnpm install
 APPLE_DEVELOPMENT_TEAM=<your team id> bash scripts/install-ios-device.sh
 ```
 
-Free-team signatures expire after 7 days; re-running the script renews them without losing app
-data.
+On Windows/Linux, a sideloading tool that signs with your Apple ID will work (AltServer 2.3.1
+or later — earlier versions fail with `-80045`).
+
+Free Apple ID limits: **7-day signature** (re-sign to renew; app data survives), 3 devices,
+3 apps per device. A free team also cannot provision push notifications, so iOS pushes are
+off in this build even though the app supports them.
 
 ## Known issues
 
