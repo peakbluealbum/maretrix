@@ -319,7 +319,7 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed \
             git nodejs pnpm rust clang libgit2 webkit2gtk-4.1 gtk3 libsoup3 \
-            gst-plugins-base gst-plugins-good gst-plugins-bad-libs pkgconf openssl
+            gst-plugins-base gst-plugins-good gst-plugins-bad-libs pkgconf openssl github-cli
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
