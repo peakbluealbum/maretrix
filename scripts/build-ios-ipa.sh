@@ -12,7 +12,20 @@ export PATH="$HOME/.local/xcode-shim:$HOME/.cargo/bin:$PATH"
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 export APPLE_SIGNING_IDENTITY=''
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/src-tauri/target-ios}"
-export MARETRIX_CONFIG_PATH="${MARETRIX_CONFIG_PATH:-/tmp/merged-config.json}"
+# Merge the deployment config into a fresh scratch file every run. Pointing at a fixed
+# /tmp path rots: the file gets cleaned up and vite then fails with
+# "failed to load config from vite.config.ts" before any Rust compiles.
+if [ -z "${MARETRIX_CONFIG_PATH:-}" ]; then
+  SECRETS="${MARETRIX_SECRETS:-$HOME/.config/maretrix/config.secrets.json}"
+  CONFIG_TMP="$(mktemp -d)"
+  if [ -f "$SECRETS" ]; then
+    python3 scripts/apply-config-secrets.py --out "$CONFIG_TMP/config.json" --secrets "$SECRETS" >/dev/null
+    export MARETRIX_CONFIG_PATH="$CONFIG_TMP/config.json"
+  else
+    echo "warning: no secrets file; this IPA ships the empty config" >&2
+  fi
+  trap 'rm -rf "$CONFIG_TMP"' EXIT
+fi
 
 LOG=/tmp/ios-ipa-build.log
 attempt() {
