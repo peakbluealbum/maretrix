@@ -430,7 +430,11 @@ jobs:
           releaseDraft: false
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
-          args: --features wry,updater,matrix-crypto -- --no-default-features
+          # NSIS only: the WiX/MSI target rejects a pre-release identifier that is not
+          # numeric ("1.1.0-rc2" -> "optional pre-release identifier in app version must be
+          # numeric-only"). The NSIS installer and the updater both accept it, and
+          # updaterJsonPreferNsis already points the updater at the .exe.
+          args: --features wry,updater,matrix-crypto --bundles nsis -- --no-default-features
       # See the macOS job. Kept for the day the codegen/tauri mismatch above is
       # fixed and this job is re-enabled.
       - name: Upload bundles
