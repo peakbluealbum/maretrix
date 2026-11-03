@@ -74,9 +74,10 @@ off in this build even though the app supports them.
 - **iOS: the timeline can stay blank for a moment after switching channels** until you scroll
   or tap. Cosmetic, and it clears itself on any interaction.
 - **Linux on Arch-based systems: voice/video calls do not work.** The distro's
-  `webkit2gtk-4.1` is compiled without WebRTC, so `RTCPeerConnection` does not exist in the
-  engine — nothing the app can enable. Debian/Ubuntu's WebKitGTK does have it, so calls work
-  from the `.deb`.
+  `webkit2gtk-4.1` is compiled without WebRTC (`ENABLE_WEB_RTC` is not passed by the PKGBUILD),
+  so `RTCPeerConnection` does not exist in the engine — nothing the app can enable. Debian and
+  Ubuntu are believed to enable it, but that has not been measured on this build; verify with a
+  call before relying on it, or use the web client.
 - **Prerelease builds log an updater error on startup** ("update endpoint did not respond"):
   GitHub has no `latest.json` for a release candidate. Harmless.
 - **macOS builds are ad-hoc signed** — no paid Apple Developer account, so no notarisation.
