@@ -88,6 +88,12 @@ function snapshot(v: VListHandle | null, wrap: HTMLElement | null, ctx: Timeline
     scrollSize: v ? Math.round(v.scrollSize) : -1,
     viewportSize: v ? Math.round(v.viewportSize) : -1,
     wrapH: wrap ? Math.round(wrap.getBoundingClientRect().height) : -1,
+    // The wrapper collapsing to 0 px while the list is laid out is what the device shows on the
+    // second mount of a switch; its parent tells us whether the collapse is local or above us.
+    parentH:
+      wrap && wrap.parentElement
+        ? Math.round(wrap.parentElement.getBoundingClientRect().height)
+        : -1,
     rendered: wrap ? wrap.querySelectorAll('[data-message-id]').length : -1,
     spacer: Math.round(ctx.spacer),
     atBottom: ctx.atBottom,
@@ -247,6 +253,7 @@ interface TimelineRecord {
   room?: string;
   vlistMounts?: number;
   wrapH?: number;
+  parentH?: number;
   viewportSize?: number;
   scrollSize?: number;
   scrollTop?: number;
@@ -296,6 +303,7 @@ export function report(): string {
       {
         v: id,
         wrap: first.wrapH,
+        par: first.parentH,
         vp: first.viewportSize,
         ss: first.scrollSize,
         rend: [first.rendered, last.rendered],

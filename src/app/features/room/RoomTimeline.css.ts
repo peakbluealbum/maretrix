@@ -41,14 +41,11 @@ export const messageList = style({
   overscrollBehavior: 'contain',
   scrollbarGutter: 'stable',
   overflowAnchor: 'none',
-  // WKWebView (Tauri iOS) can leave the visible tiles of a freshly mounted virtual list
-  // unpainted — the native window colour shows through the timeline until any user
-  // interaction forces an invalidation. virtua's own docs blame imperative scrollTop
-  // updates during mount (inokawa/virtua#362), which is exactly what the initial
-  // scroll-to-bottom does. Promoting the scroller to its own compositing layer hands tile
-  // rasterisation to the compositor, which paints the range on the next frame instead of
-  // waiting for a scroll/tap. Cost: one extra layer for the timeline.
-  transform: 'translateZ(0)',
+  // No compositing promotion here. `translateZ(0)` was added early on to force the timeline onto
+  // its own layer, never changed the symptom, and a promoted scroller is exactly the thing WebKit
+  // can leave with unrasterised tiles after a programmatic scroll — which is the top-of-screen
+  // background the owner sees covering messages. The room background is painted on the wrapper
+  // instead, so a dropped tile is never the window colour.
 
   '@supports': {
     '(-moz-appearance: none)': {

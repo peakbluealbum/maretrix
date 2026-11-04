@@ -483,6 +483,10 @@ export function RoomTimeline({
   const touchStartYRef = useRef<number | undefined>(undefined);
   const pendingReadyRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
+  // Revealed only once the first bottom latch has settled. Until then the timeline is laid out
+  // (so virtua can measure) but painted as the room background: on the device, showing it earlier
+  // means showing the first page at its own bottom and then a jump to the real bottom.
+  const [timelineRevealed, setTimelineRevealed] = useState(eventId !== undefined);
   const isReadyRef = useRef(isReady);
   isReadyRef.current = isReady;
 
@@ -736,7 +740,11 @@ export function RoomTimeline({
 
   // Mirrors the `key` on the VList below: every room switch (and every change of live/anchor
   // state) remounts the virtual list, which re-measures and re-runs the initial scroll sequence.
-  const timelineListKey = `${room.roomId}:${timelineSync.liveTimelineLinked ? 'live' : (timelineSync.focusItem?.eventId ?? scrollAnchorRef.current)}`;
+  const timelineListKey = `${room.roomId}:${
+    timelineSync.liveTimelineLinked || (timelineSync.focusItem?.eventId ?? scrollAnchorRef.current) === undefined
+      ? 'live'
+      : (timelineSync.focusItem?.eventId ?? scrollAnchorRef.current)
+  }`;
 
   useEffect(() => {
     timelineDebug.mountVList(room.roomId);
@@ -842,6 +850,7 @@ export function RoomTimeline({
 
       if (cancelled) {
         timelineDebug.note('latch-end', { frames, reason: 'cancelled' }, vListRef.current, messageListRef.current, debugCtx());
+        setTimelineRevealed(true);
         setIsReady(true);
         return;
       }
@@ -873,6 +882,9 @@ export function RoomTimeline({
           messageListRef.current,
           debugCtx()
         );
+        // Only reveal into a box that actually has a height; a zero-height wrapper would show the
+        // background and then pop the messages in whenever layout returns.
+        if (scrollEl.clientHeight > 0) setTimelineRevealed(true);
         setIsReady(true);
         return;
       }
@@ -892,6 +904,14 @@ export function RoomTimeline({
     },
     []
   );
+
+  // Never leave the timeline invisible: if no latch ever completes (no events, an anchor jump, a
+  // zero-height box), show it anyway rather than presenting the reader with a blank panel.
+  useEffect(() => {
+    if (timelineRevealed) return undefined;
+    const timer = setTimeout(() => setTimelineRevealed(true), 1000);
+    return () => clearTimeout(timer);
+  }, [timelineRevealed]);
 
   useLayoutEffect(() => {
     if (!eventId) return;
@@ -1683,6 +1703,9 @@ export function RoomTimeline({
               width: '100%',
               display: 'flex',
               flexDirection: 'column',
+              // Layout stays live while hidden so virtua measures the real viewport; only the paint
+              // waits for the latch, which is what removes the visible jump on a room switch.
+              visibility: timelineRevealed ? undefined : 'hidden',
               paddingTop: topSpacerHeight > 0 ? topSpacerHeight : config.space.S600,
               paddingBottom: config.space.S600,
             }}
