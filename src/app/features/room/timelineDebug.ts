@@ -260,6 +260,7 @@ interface TimelineRecord {
   rendered?: number;
   spacer?: number;
   atBottom?: boolean;
+  reason?: string;
   t?: number;
 }
 
@@ -328,9 +329,18 @@ export function report(): string {
     .map((element) => Math.round(element.getBoundingClientRect().height))
     .sort((a, b) => a - b);
 
+  const latchEnds: Record<string, number> = {};
+  records
+    .filter((record) => record.ev === 'latch-end')
+    .forEach((record) => {
+      const reason = record.reason ?? 'settled';
+      latchEnds[reason] = (latchEnds[reason] ?? 0) + 1;
+    });
+
   return JSON.stringify({
     n: records.length,
     byEvent,
+    latchEnds,
     mounts,
     trajectory,
     now: {

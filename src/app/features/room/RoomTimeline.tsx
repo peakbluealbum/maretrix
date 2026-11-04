@@ -478,6 +478,7 @@ export function RoomTimeline({
   const initialScrollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const initialScrollCancelledRef = useRef(false);
   const pinBottomFrameRef = useRef<number | undefined>(undefined);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const hasUserScrollIntentRef = useRef(false);
   const focusedPaginationIntentRef = useRef<'backward' | 'forward' | undefined>(undefined);
   const touchStartYRef = useRef<number | undefined>(undefined);
@@ -829,6 +830,11 @@ export function RoomTimeline({
   const startBottomLatch = useCallback(() => {
     const running = pinBottomFrameRef.current;
     if (running !== undefined) cancelAnimationFrame(running);
+    // A new burst is arriving: hold the paint until it, too, has settled.
+    if (revealTimerRef.current !== undefined) {
+      clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = undefined;
+    }
 
     let stableFrames = 0;
     let frames = 0;
@@ -882,9 +888,18 @@ export function RoomTimeline({
           messageListRef.current,
           debugCtx()
         );
-        // Only reveal into a box that actually has a height; a zero-height wrapper would show the
-        // background and then pop the messages in whenever layout returns.
-        if (scrollEl.clientHeight > 0) setTimelineRevealed(true);
+        // Only reveal into a box that actually has a height, and only after the timeline has been
+        // quiet for a moment: the window keeps arriving in stages long after the geometry first
+        // settles (272 arrivals during a ten-switch run), and revealing between stages is what
+        // makes the remaining movement visible.
+        if (scrollEl.clientHeight > 0) {
+          if (revealTimerRef.current !== undefined) clearTimeout(revealTimerRef.current);
+          revealTimerRef.current = setTimeout(() => {
+            revealTimerRef.current = undefined;
+            timelineDebug.note('reveal', { scrollTop: scrollEl.scrollTop, h: scrollEl.clientHeight }, vListRef.current, messageListRef.current, debugCtx());
+            setTimelineRevealed(true);
+          }, 350);
+        }
         setIsReady(true);
         return;
       }
@@ -901,6 +916,7 @@ export function RoomTimeline({
   useEffect(
     () => () => {
       if (pinBottomFrameRef.current !== undefined) cancelAnimationFrame(pinBottomFrameRef.current);
+      if (revealTimerRef.current !== undefined) clearTimeout(revealTimerRef.current);
     },
     []
   );
