@@ -35,6 +35,10 @@ export const TimelineFloat = recipe({
 export type TimelineFloatVariants = RecipeVariants<typeof TimelineFloat>;
 export const messageList = style({
   overflowY: 'scroll',
+  // Keep the rubber-band inside the timeline: without this the overscroll chains to the document,
+  // the whole page bounces, and every one of those scroll events feeds the "are we at the bottom?"
+  // logic while the list is mid-gesture.
+  overscrollBehavior: 'contain',
   scrollbarGutter: 'stable',
   overflowAnchor: 'none',
   // WKWebView (Tauri iOS) can leave the visible tiles of a freshly mounted virtual list

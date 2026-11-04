@@ -43,6 +43,7 @@ import {
 } from '$utils/room/relations';
 import { getMemberDisplayName } from '$utils/room/display';
 import { isMobileTauri } from '$utils/platform';
+import * as timelineDebug from './timelineDebug';
 import { useRoomNavigate } from '$hooks/useRoomNavigate';
 import { useSlidingSyncRoomLoading } from '$hooks/useSlidingSyncActiveRoom';
 import { useOpenUserRoomProfile } from '$state/hooks/userRoomProfile';
@@ -481,6 +482,28 @@ export function RoomTimeline({
   const touchStartYRef = useRef<number | undefined>(undefined);
   const pendingReadyRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
+  const isReadyRef = useRef(isReady);
+  isReadyRef.current = isReady;
+
+  // Sampler context, read at call time so a stale closure can never report yesterday's numbers.
+  const debugCtx = useCallback(
+    () => ({
+      roomId: room.roomId,
+      spacer: topSpacerHeightRef.current,
+      atBottom: atBottomRef.current,
+      isReady: isReadyRef.current,
+    }),
+    [room.roomId]
+  );
+
+  useEffect(() => {
+    timelineDebug.mountTimeline(room.roomId);
+  }, [room.roomId]);
+
+  useEffect(() => {
+    timelineDebug.ready(isReady, vListRef.current, messageListRef.current, debugCtx());
+  }, [isReady, debugCtx]);
+
 
   const processedEventsRef = useRef<ProcessedEvent[]>([]);
   const timelineSyncRef = useRef<typeof timelineSync>(null as unknown as typeof timelineSync);
@@ -710,6 +733,18 @@ export function RoomTimeline({
   timelineSyncRef.current = timelineSync;
   const focusLiveTimeline = timelineSync.focusLiveTimeline;
 
+  // Mirrors the `key` on the VList below: every room switch (and every change of live/anchor
+  // state) remounts the virtual list, which re-measures and re-runs the initial scroll sequence.
+  const timelineListKey = `${room.roomId}:${timelineSync.liveTimelineLinked ? 'live' : (timelineSync.focusItem?.eventId ?? scrollAnchorRef.current)}`;
+
+  useEffect(() => {
+    timelineDebug.mountVList(room.roomId);
+    const raf = window.requestAnimationFrame(() => {
+      timelineDebug.trace(14, 'mount', vListRef.current, messageListRef.current, debugCtx());
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [timelineListKey, room.roomId, debugCtx]);
+
   const eventsLengthRef = useRef(timelineSync.eventsLength);
   eventsLengthRef.current = timelineSync.eventsLength;
 
@@ -838,11 +873,12 @@ export function RoomTimeline({
     if (Math.abs(prev - newH) > 2) {
       topSpacerHeightRef.current = newH;
       setTopSpacerHeight(newH);
+      timelineDebug.spacer(prev, newH, v, messageListRef.current, debugCtx());
       if (prev > 0 && newH === 0 && processedEventsRef.current.length > 0) {
         requestAnimationFrame(restoreScrollPosition);
       }
     }
-  }, [restoreScrollPosition]);
+  }, [restoreScrollPosition, debugCtx]);
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(recalcTopSpacer);
@@ -1235,6 +1271,7 @@ export function RoomTimeline({
       const v = vListRef.current;
       if (!v) return;
 
+      timelineDebug.scroll(v, messageListRef.current, debugCtx());
       prefetchAroundViewport();
 
       const distanceFromBottom = v.scrollSize - offset - v.viewportSize;
@@ -1284,15 +1321,16 @@ export function RoomTimeline({
         void timelineSyncRef.current.handleTimelinePagination(false);
       }
     },
-    [eventId, notifyScroll, syncAtBottom, prefetchAroundViewport]
+    [eventId, notifyScroll, syncAtBottom, prefetchAroundViewport, debugCtx]
   );
   const handleVListScrollEnd = useCallback(() => {
+    timelineDebug.settle(vListRef.current, messageListRef.current, debugCtx());
     if (!timelineSyncRef.current.focusItem?.scrollTo) return;
     restoreScrollAnchor();
     timelineSyncRef.current.setFocusItem((prev) =>
       prev ? { ...prev, scrollTo: false } : undefined
     );
-  }, [restoreScrollAnchor]);
+  }, [restoreScrollAnchor, debugCtx]);
 
   // A failed backfill keeps its pagination token, so the placeholder condition
   // would otherwise hold forever and never reach the error and its Retry.
@@ -1418,8 +1456,16 @@ export function RoomTimeline({
         processedEventIds[index + processedEventIds.length - previousProcessedEventIds.length]
     );
   useLayoutEffect(() => {
+    const previousIds = previousProcessedEventIdsRef.current;
+    timelineDebug.arrival(
+      previousIds?.length ?? 0,
+      processedEventIds.length,
+      vListRef.current,
+      messageListRef.current,
+      debugCtx()
+    );
     previousProcessedEventIdsRef.current = processedEventIds;
-  }, [processedEventIds]);
+  }, [processedEventIds, debugCtx]);
   useLayoutEffect(() => {
     if (!pendingReadyRef.current) return;
     if (processedEvents.length === 0) return;
@@ -1530,12 +1576,17 @@ export function RoomTimeline({
           width: '100%',
           overflow: 'hidden',
           position: 'relative',
+          // A tile that WebKit drops on a freshly mounted virtual list shows whatever is behind
+          // the timeline, which was the window colour. Paint the room background here, on the
+          // wrapper rather than the scroller: the wrapper is a separate element, so its background
+          // is not part of the layer whose tiles get dropped.
+          background: color.Background.Container,
           opacity: hideTimelineForRoomState ? 0 : 1,
         }}
       >
         <TimelineScrollingProvider value={isTimelineScrolling}>
           <VList<ProcessedEvent>
-            key={`${room.roomId}:${timelineSync.liveTimelineLinked ? 'live' : (timelineSync.focusItem?.eventId ?? scrollAnchorRef.current)}`}
+            key={timelineListKey}
             ref={vListRef}
             data={processedEvents}
             shift={shouldShift}
