@@ -477,6 +477,7 @@ export function RoomTimeline({
   const hasInitialScrolledRef = useRef(false);
   const initialScrollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const initialScrollCancelledRef = useRef(false);
+  const pinBottomFrameRef = useRef<number | undefined>(undefined);
   const hasUserScrollIntentRef = useRef(false);
   const focusedPaginationIntentRef = useRef<'backward' | 'forward' | undefined>(undefined);
   const touchStartYRef = useRef<number | undefined>(undefined);
@@ -801,6 +802,86 @@ export function RoomTimeline({
     if (atBottomRef.current && processedEventsRef.current.length > 0) scrollToBottom();
   }, [restoreScrollAnchor, scrollToBottom]);
 
+  /**
+   * Bottom latch.
+   *
+   * The event window arrives in stages: the first page mounts the list at its own bottom, then the
+   * full window replaces it and the content height jumps by an order of magnitude (measured on the
+   * device: 3163 px of first page, 37798 px once loaded). A single scroll — or an 80 ms timer plus
+   * one rAF, which is what this used to do — lands at the bottom of whatever existed at that
+   * instant and then sits there: `scrollTop` 2469 for ~180 ms, then a step to 29028, then 37104.
+   * That is the "snap up, then correct down".
+   *
+   * So while the initial scroll still owns the timeline, re-pin to the bottom every frame and stop
+   * only once the geometry has been stable for three frames. The scroll element's own
+   * `scrollHeight` is the authority here, not virtua's index maths: asking virtua for the last index
+   * while its size cache is empty produces an estimated offset that is wrong by tens of thousands
+   * of pixels.
+   */
+  const startBottomLatch = useCallback(() => {
+    if (pinBottomFrameRef.current !== undefined) cancelAnimationFrame(pinBottomFrameRef.current);
+
+    let stableFrames = 0;
+    let frames = 0;
+    let previousTop = -1;
+    let previousSize = -1;
+
+    const step = () => {
+      pinBottomFrameRef.current = undefined;
+
+      const scrollEl = scrollElRef.current;
+      const cancelled =
+        !scrollEl ||
+        initialScrollCancelledRef.current ||
+        hasUserScrollIntentRef.current ||
+        scrollOwnerRef.current !== 'live';
+
+      if (cancelled) {
+        timelineDebug.note('latch-end', { frames, reason: 'cancelled' }, vListRef.current, messageListRef.current, debugCtx());
+        setIsReady(true);
+        return;
+      }
+
+      frames += 1;
+      scrollElementToBottom(scrollEl, 'auto');
+
+      const top = Math.round(scrollEl.scrollTop);
+      const size = scrollEl.scrollHeight;
+
+      if (top === previousTop && size === previousSize) stableFrames += 1;
+      else stableFrames = 0;
+
+      previousTop = top;
+      previousSize = size;
+
+      // Content arrives in bursts, so three quiet frames right after mount do not mean the window
+      // is complete. Require ~200 ms of minimum pinning before stability can end the latch.
+      if ((frames >= 12 && stableFrames >= 3) || frames >= 90) {
+        timelineDebug.note(
+          'latch-end',
+          { frames, stableFrames, scrollTop: top, scrollHeight: size },
+          vListRef.current,
+          messageListRef.current,
+          debugCtx()
+        );
+        setIsReady(true);
+        return;
+      }
+
+      pinBottomFrameRef.current = requestAnimationFrame(step);
+    };
+
+    timelineDebug.note('latch-start', { frames: 0 }, vListRef.current, messageListRef.current, debugCtx());
+    pinBottomFrameRef.current = requestAnimationFrame(step);
+  }, [debugCtx]);
+
+  useEffect(
+    () => () => {
+      if (pinBottomFrameRef.current !== undefined) cancelAnimationFrame(pinBottomFrameRef.current);
+    },
+    []
+  );
+
   useLayoutEffect(() => {
     if (!eventId) return;
     if (initialScrollTimerRef.current !== undefined) {
@@ -819,30 +900,15 @@ export function RoomTimeline({
       vListRef.current
     ) {
       initialScrollCancelledRef.current = false;
-      scrollToBottom();
-      initialScrollTimerRef.current = setTimeout(() => {
-        initialScrollTimerRef.current = undefined;
-        if (initialScrollCancelledRef.current) return;
-        if (unreadScrollToRef.current) {
-          setIsReady(true);
-          return;
-        }
-        if (processedEventsRef.current.length > 0) {
-          scrollToBottom();
-          requestAnimationFrame(() => {
-            if (initialScrollCancelledRef.current) return;
-            if (processedEventsRef.current.length > 0) {
-              scrollToBottom();
-              setIsReady(true);
-            } else {
-              pendingReadyRef.current = true;
-            }
-          });
-        } else {
-          pendingReadyRef.current = true;
-        }
-      }, 80);
       hasInitialScrolledRef.current = true;
+      if (unreadScrollToRef.current) {
+        setIsReady(true);
+        return;
+      }
+      scrollToBottom();
+      // The first page is on screen; the full window is still arriving. Pin until the geometry
+      // stops moving instead of trusting one timer and one frame.
+      startBottomLatch();
     }
   }, [
     timelineSync.eventsLength,
@@ -850,6 +916,7 @@ export function RoomTimeline({
     scrollOwner,
     room.roomId,
     scrollToBottom,
+    startBottomLatch,
   ]);
 
   useEffect(

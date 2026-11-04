@@ -204,6 +204,19 @@ export function spacer(
   push({ ev: 'spacer', from: Math.round(from), to: Math.round(to), ...snapshot(v, wrap, ctx) });
 }
 
+/** Records a latch/scroll-policy event with the same geometry snapshot as everything else. */
+export function note(
+  event: string,
+  extra: Record<string, unknown>,
+  v: VListHandle | null,
+  wrap: HTMLElement | null,
+  ctx: TimelineDebugContext
+) {
+  if (!ENABLED) return;
+  push({ ev: event, ...extra, ...snapshot(v, wrap, ctx) });
+  flush();
+}
+
 export function dump(): string {
   // The buffer is in memory, so a relaunch between the run and the read leaves it empty while
   // localStorage still holds the last flushed session. Prefer the live buffer, fall back to disk.
@@ -228,12 +241,107 @@ export function enabled(): boolean {
   return ENABLED;
 }
 
+interface TimelineRecord {
+  ev: string;
+  label?: string;
+  room?: string;
+  vlistMounts?: number;
+  wrapH?: number;
+  viewportSize?: number;
+  scrollSize?: number;
+  scrollTop?: number;
+  rendered?: number;
+  spacer?: number;
+  atBottom?: boolean;
+  t?: number;
+}
+
+/**
+ * The whole diagnosis in one string: per-mount geometry bracketed around the switch, the tail of
+ * the scroll trajectory, and a live probe of the DOM against virtua's numbers. Small enough to read
+ * off a phone screen, which the raw JSONL is not.
+ */
+export function report(): string {
+  const records = dump()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line) as TimelineRecord;
+      } catch {
+        return undefined;
+      }
+    })
+    .filter((record): record is TimelineRecord => record !== undefined);
+
+  const byEvent: Record<string, number> = {};
+  records.forEach((record) => {
+    byEvent[record.ev] = (byEvent[record.ev] ?? 0) + 1;
+  });
+
+  const mountGroups = new Map<number, TimelineRecord[]>();
+  records.forEach((record) => {
+    if (record.ev !== 'frame' || record.label !== 'mount') return;
+    const key = record.vlistMounts ?? -1;
+    const group = mountGroups.get(key) ?? [];
+    group.push(record);
+    mountGroups.set(key, group);
+  });
+
+  const mounts = [...mountGroups.entries()].flatMap(([id, frames]) => {
+    const first = frames[0];
+    const last = frames[frames.length - 1];
+    if (!first || !last) return [];
+    return [
+      {
+        v: id,
+        wrap: first.wrapH,
+        vp: first.viewportSize,
+        ss: first.scrollSize,
+        rend: [first.rendered, last.rendered],
+        st: [Math.round(first.scrollTop ?? 0), Math.round(last.scrollTop ?? 0)],
+      },
+    ];
+  });
+
+  const trajectory = records
+    .filter((record) => record.ev === 'scroll' || record.ev === 'scrollend')
+    .slice(-10)
+    .map((record) => [
+      record.ev === 'scroll' ? 's' : 'e',
+      Math.round(record.scrollTop ?? 0),
+      Math.round(record.scrollSize ?? 0),
+      record.rendered,
+      record.atBottom ? 1 : 0,
+    ]);
+
+  const scrollEl = document.querySelector<HTMLElement>('#timeline-scroller');
+  const heights = [...document.querySelectorAll('[data-message-id]')]
+    .map((element) => Math.round(element.getBoundingClientRect().height))
+    .sort((a, b) => a - b);
+
+  return JSON.stringify({
+    n: records.length,
+    byEvent,
+    mounts,
+    trajectory,
+    now: {
+      rows: heights.length,
+      h: heights.length ? [heights[0], heights[Math.floor(heights.length / 2)], heights[heights.length - 1]] : [],
+      domClient: scrollEl ? scrollEl.clientHeight : null,
+      domScroll: scrollEl ? scrollEl.scrollHeight : null,
+      domSt: scrollEl ? Math.round(scrollEl.scrollTop) : null,
+    },
+  });
+}
+
 if (typeof window !== 'undefined') {
   (window as unknown as { __maretrixTL?: unknown }).__maretrixTL = {
     enabled: ENABLED,
     dump,
     clear,
     flush,
+    report,
   };
 
   if (ENABLED) {
