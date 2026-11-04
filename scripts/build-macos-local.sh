@@ -48,6 +48,18 @@ else
 fi
 
 echo "build: MARETRIX_CONFIG_PATH=$MARETRIX_CONFIG_PATH"
+# The Homebrew rustc shadows rustup's and carries only the host std, so a universal build dies
+# with "can't find crate for core" while a single-arch one quietly succeeds on the wrong
+# compiler. Force the rustup toolchain the repo pins and assert it before doing any work.
+export PATH="$HOME/.cargo/bin:$PATH"
+PINNED_RUSTC="$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
+ACTIVE_RUSTC="$(rustc --version | awk '{print $2}')"
+if [ "$ACTIVE_RUSTC" != "$PINNED_RUSTC" ]; then
+  echo "error: rustc $ACTIVE_RUSTC is active, the repo pins $PINNED_RUSTC — check PATH order" >&2
+  exit 1
+fi
+echo "rustc $ACTIVE_RUSTC (pinned)"
+
 # Default to a universal binary: the release ships one DMG for both architectures and the
 # updater advertises darwin-aarch64 and darwin-x86_64 against the same tarball. Building the
 # host arch alone silently produces an aarch64-only DMG (1.1.0 did exactly that once).

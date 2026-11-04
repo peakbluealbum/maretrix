@@ -261,6 +261,8 @@ interface TimelineRecord {
   spacer?: number;
   atBottom?: boolean;
   reason?: string;
+  gap?: number;
+  dur?: number;
   t?: number;
 }
 
@@ -341,6 +343,8 @@ export function report(): string {
     n: records.length,
     byEvent,
     latchEnds,
+    stalls: records.filter((record) => record.ev === 'stall').slice(-8).map((record) => record.gap),
+    longtasks: records.filter((record) => record.ev === 'longtask').slice(-8).map((record) => record.dur),
     mounts,
     trajectory,
     now: {
@@ -375,6 +379,31 @@ if (typeof window !== 'undefined') {
       vvTop: vv ? Math.round(vv.offsetTop) : -1,
       dpr: window.devicePixelRatio,
     });
+
+    // Main-thread stalls. The recording shows the timeline rendering nothing at all for seconds
+    // after a switch; if the thread is blocked while the room is rebuilt, no frame-based sampler
+    // can see it, so a 50 ms heartbeat records every gap it misses. WebKit also reports long tasks
+    // on recent versions; both are recorded because neither is guaranteed.
+    let lastTick = performance.now();
+    window.setInterval(() => {
+      const now = performance.now();
+      const gap = Math.round(now - lastTick);
+      lastTick = now;
+      if (gap > 80) push({ ev: 'stall', gap });
+    }, 50);
+
+    if (typeof PerformanceObserver !== 'undefined') {
+      try {
+        const observer = new PerformanceObserver((list) => {
+          list.getEntries().forEach((entry) => {
+            push({ ev: 'longtask', start: Math.round(entry.startTime), dur: Math.round(entry.duration) });
+          });
+        });
+        observer.observe({ entryTypes: ['longtask'] });
+      } catch {
+        // Not supported on this engine; the heartbeat still catches the same stalls.
+      }
+    }
 
     const flushOnHide = () => flush();
     window.addEventListener('pagehide', flushOnHide);

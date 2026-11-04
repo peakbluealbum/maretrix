@@ -478,16 +478,11 @@ export function RoomTimeline({
   const initialScrollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const initialScrollCancelledRef = useRef(false);
   const pinBottomFrameRef = useRef<number | undefined>(undefined);
-  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const hasUserScrollIntentRef = useRef(false);
   const focusedPaginationIntentRef = useRef<'backward' | 'forward' | undefined>(undefined);
   const touchStartYRef = useRef<number | undefined>(undefined);
   const pendingReadyRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
-  // Revealed only once the first bottom latch has settled. Until then the timeline is laid out
-  // (so virtua can measure) but painted as the room background: on the device, showing it earlier
-  // means showing the first page at its own bottom and then a jump to the real bottom.
-  const [timelineRevealed, setTimelineRevealed] = useState(eventId !== undefined);
   const isReadyRef = useRef(isReady);
   isReadyRef.current = isReady;
 
@@ -830,11 +825,6 @@ export function RoomTimeline({
   const startBottomLatch = useCallback(() => {
     const running = pinBottomFrameRef.current;
     if (running !== undefined) cancelAnimationFrame(running);
-    // A new burst is arriving: hold the paint until it, too, has settled.
-    if (revealTimerRef.current !== undefined) {
-      clearTimeout(revealTimerRef.current);
-      revealTimerRef.current = undefined;
-    }
 
     let stableFrames = 0;
     let frames = 0;
@@ -856,7 +846,6 @@ export function RoomTimeline({
 
       if (cancelled) {
         timelineDebug.note('latch-end', { frames, reason: 'cancelled' }, vListRef.current, messageListRef.current, debugCtx());
-        setTimelineRevealed(true);
         setIsReady(true);
         return;
       }
@@ -888,18 +877,6 @@ export function RoomTimeline({
           messageListRef.current,
           debugCtx()
         );
-        // Only reveal into a box that actually has a height, and only after the timeline has been
-        // quiet for a moment: the window keeps arriving in stages long after the geometry first
-        // settles (272 arrivals during a ten-switch run), and revealing between stages is what
-        // makes the remaining movement visible.
-        if (scrollEl.clientHeight > 0) {
-          if (revealTimerRef.current !== undefined) clearTimeout(revealTimerRef.current);
-          revealTimerRef.current = setTimeout(() => {
-            revealTimerRef.current = undefined;
-            timelineDebug.note('reveal', { scrollTop: scrollEl.scrollTop, h: scrollEl.clientHeight }, vListRef.current, messageListRef.current, debugCtx());
-            setTimelineRevealed(true);
-          }, 350);
-        }
         setIsReady(true);
         return;
       }
@@ -916,18 +893,9 @@ export function RoomTimeline({
   useEffect(
     () => () => {
       if (pinBottomFrameRef.current !== undefined) cancelAnimationFrame(pinBottomFrameRef.current);
-      if (revealTimerRef.current !== undefined) clearTimeout(revealTimerRef.current);
     },
     []
   );
-
-  // Never leave the timeline invisible: if no latch ever completes (no events, an anchor jump, a
-  // zero-height box), show it anyway rather than presenting the reader with a blank panel.
-  useEffect(() => {
-    if (timelineRevealed) return undefined;
-    const timer = setTimeout(() => setTimelineRevealed(true), 1000);
-    return () => clearTimeout(timer);
-  }, [timelineRevealed]);
 
   useLayoutEffect(() => {
     if (!eventId) return;
@@ -1710,7 +1678,12 @@ export function RoomTimeline({
             key={timelineListKey}
             ref={vListRef}
             data={processedEvents}
-            shift={shouldShift}
+            // `shift` is virtua's own scroll compensation for items prepended to the list. This
+            // timeline already compensates manually (`restoreScrollPosition`, `scrollAnchorRef`,
+            // the top spacer), and the two fighting is a candidate for the empty viewport the
+            // recording shows mid-fling: correct `scrollSize`, one 54 px row rendered. Off for now;
+            // the app's own anchoring has to carry it.
+            shift={false}
             id="timeline-scroller"
             className={css.messageList}
             style={{
@@ -1719,9 +1692,6 @@ export function RoomTimeline({
               width: '100%',
               display: 'flex',
               flexDirection: 'column',
-              // Layout stays live while hidden so virtua measures the real viewport; only the paint
-              // waits for the latch, which is what removes the visible jump on a room switch.
-              visibility: timelineRevealed ? undefined : 'hidden',
               paddingTop: topSpacerHeight > 0 ? topSpacerHeight : config.space.S600,
               paddingBottom: config.space.S600,
             }}
