@@ -205,7 +205,14 @@ export function spacer(
 }
 
 export function dump(): string {
-  return buffer.join('\n');
+  // The buffer is in memory, so a relaunch between the run and the read leaves it empty while
+  // localStorage still holds the last flushed session. Prefer the live buffer, fall back to disk.
+  if (buffer.length > 0) return buffer.join('\n');
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) ?? '';
+  } catch {
+    return '';
+  }
 }
 
 export function clear() {
