@@ -819,7 +819,8 @@ export function RoomTimeline({
    * of pixels.
    */
   const startBottomLatch = useCallback(() => {
-    if (pinBottomFrameRef.current !== undefined) cancelAnimationFrame(pinBottomFrameRef.current);
+    const running = pinBottomFrameRef.current;
+    if (running !== undefined) cancelAnimationFrame(running);
 
     let stableFrames = 0;
     let frames = 0;
@@ -834,7 +835,10 @@ export function RoomTimeline({
         !scrollEl ||
         initialScrollCancelledRef.current ||
         hasUserScrollIntentRef.current ||
-        scrollOwnerRef.current !== 'live';
+        // An explicit anchor (jump to event, unread) owns the scroll; a room that is merely still
+        // linking its live timeline does not, and that is exactly the state a fast switch leaves
+        // behind — so the latch must not cancel on `scrollOwner`.
+        scrollAnchorRef.current !== undefined;
 
       if (cancelled) {
         timelineDebug.note('latch-end', { frames, reason: 'cancelled' }, vListRef.current, messageListRef.current, debugCtx());
@@ -843,7 +847,12 @@ export function RoomTimeline({
       }
 
       frames += 1;
-      scrollElementToBottom(scrollEl, 'auto');
+
+      // Skip the write when the list is already at the bottom: every scroll event feeds
+      // `notifyScroll` and re-renders the timeline, and a latch that fires 60 times a second in a
+      // busy room would cost more than it fixes.
+      const target = scrollEl.scrollHeight - scrollEl.clientHeight;
+      if (Math.abs(scrollEl.scrollTop - target) > 1) scrollElementToBottom(scrollEl, 'auto');
 
       const top = Math.round(scrollEl.scrollTop);
       const size = scrollEl.scrollHeight;
@@ -871,7 +880,9 @@ export function RoomTimeline({
       pinBottomFrameRef.current = requestAnimationFrame(step);
     };
 
-    timelineDebug.note('latch-start', { frames: 0 }, vListRef.current, messageListRef.current, debugCtx());
+    if (running === undefined) {
+      timelineDebug.note('latch-start', { frames: 0 }, vListRef.current, messageListRef.current, debugCtx());
+    }
     pinBottomFrameRef.current = requestAnimationFrame(step);
   }, [debugCtx]);
 
@@ -1532,7 +1543,14 @@ export function RoomTimeline({
       debugCtx()
     );
     previousProcessedEventIdsRef.current = processedEventIds;
-  }, [processedEventIds, debugCtx]);
+
+    // Content keeps arriving after the initial scroll has fired (the device trace shows the window
+    // growing for ~180 ms after a switch). While the reader is still meant to be at the bottom, keep
+    // re-pinning instead of trusting the one scroll that ran against the first page.
+    if (atBottomRef.current && scrollAnchorRef.current === undefined && eventId === undefined) {
+      startBottomLatch();
+    }
+  }, [processedEventIds, debugCtx, eventId, startBottomLatch]);
   useLayoutEffect(() => {
     if (!pendingReadyRef.current) return;
     if (processedEvents.length === 0) return;
