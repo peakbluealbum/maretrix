@@ -41,11 +41,12 @@ export const messageList = style({
   overscrollBehavior: 'contain',
   scrollbarGutter: 'stable',
   overflowAnchor: 'none',
-  // No compositing promotion here. `translateZ(0)` was added early on to force the timeline onto
-  // its own layer, never changed the symptom, and a promoted scroller is exactly the thing WebKit
-  // can leave with unrasterised tiles after a programmatic scroll — which is the top-of-screen
-  // background the owner sees covering messages. The room background is painted on the wrapper
-  // instead, so a dropped tile is never the window colour.
+  // Promote only the scroller, never the room around it. A room-wide layer (see
+  // SwipeableChatWrapper) rasterises the header icons at layer resolution; a promoted *scroller*
+  // is what keeps a fling smooth on iOS. Removed once during the hunt for dropped tiles — the
+  // tiles still dropped — so it is back for the scrolling, and the header stays crisp because it
+  // is outside this layer.
+  transform: 'translateZ(0)',
 
   '@supports': {
     '(-moz-appearance: none)': {

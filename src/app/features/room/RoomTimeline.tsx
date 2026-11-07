@@ -602,6 +602,44 @@ export function RoomTimeline({
     };
   }, [isReady, room.roomId]);
 
+  // A room switch can lay the room out at zero height for a frame or two — the trace shows
+  // `wrap 0, par 0` on the second mount of a switch. virtua measures that as its viewport, and when
+  // the box expands WebKit drops its resize notification ("ResizeObserver loop completed with
+  // undelivered notifications"), so the list keeps a one-row range: the newest message alone, or a
+  // viewport that empties at the bottom until a scroll forces a re-measure. Watch the wrapper here
+  // and nudge the scroller's width once on the 0 → N transition, which is what makes virtua
+  // re-measure.
+  useEffect(() => {
+    const wrap = messageListRef.current;
+    if (!wrap) return undefined;
+
+    let lastHeight = wrap.clientHeight;
+    let nudgeFrame = 0;
+
+    const observer = new ResizeObserver(() => {
+      const height = wrap.clientHeight;
+      const restored = lastHeight === 0 && height > 0;
+      lastHeight = height;
+      if (!restored) return;
+
+      const scroller = wrap.firstElementChild;
+      if (!(scroller instanceof HTMLElement)) return;
+
+      const previous = scroller.style.width;
+      scroller.style.width = 'calc(100% - 1px)';
+      nudgeFrame = requestAnimationFrame(() => {
+        scroller.style.width = previous;
+      });
+      timelineDebug.note('remeasure', { height }, vListRef.current, wrap, debugCtx());
+    });
+
+    observer.observe(wrap);
+    return () => {
+      observer.disconnect();
+      if (nudgeFrame) cancelAnimationFrame(nudgeFrame);
+    };
+  }, [debugCtx]);
+
   const jumpToEvent = useCallback(
     (id: string) => {
       setAtBottom(false);
