@@ -21,7 +21,7 @@
 
 import type { VListHandle } from 'virtua';
 
-const MAX_RECORDS = 600;
+const MAX_RECORDS = 400;
 const STORAGE_KEY = 'maretrix:timeline:jsonl';
 const SCROLL_RECORD_INTERVAL_MS = 120;
 const SETTLE_TRACE_DELAY_MS = 200;
@@ -54,17 +54,23 @@ const ENABLED = resolveEnabled();
 let roomTimelineMounts = 0;
 let vlistMounts = 0;
 let lastScrollRecord = 0;
+let lastFlushAt = 0;
 let settleTimer: ReturnType<typeof setTimeout> | undefined;
 let tracing = false;
 
 const buffer: string[] = [];
 
-function flush() {
+function flush(force = false) {
   if (!ENABLED) return;
+  // Writing the whole ring is synchronous I/O: once per arrival is enough to stall the timeline for
+  // a second on a phone. Throttled; forced only when the page is going away.
+  const now = performance.now();
+  if (!force && now - lastFlushAt < 2000) return;
+  lastFlushAt = now;
   try {
     window.localStorage.setItem(STORAGE_KEY, buffer.join('\n'));
   } catch {
-    // Quota or private mode: the in-memory buffer and the console mirror are still usable.
+    // Quota or private mode: the in-memory buffer is still readable for this session.
   }
 }
 
@@ -73,8 +79,8 @@ function push(record: Record<string, unknown>) {
   const line = JSON.stringify(record);
   buffer.push(line);
   if (buffer.length > MAX_RECORDS) buffer.splice(0, buffer.length - MAX_RECORDS);
-  // eslint-disable-next-line no-console
-  console.info('[tl]', line);
+  // No console mirror: with Web Inspector attached, one console message per sample serialises the
+  // object and IPC-hops it, which shows up as multi-second stalls in the app itself.
 }
 
 function snapshot(v: VListHandle | null, wrap: HTMLElement | null, ctx: TimelineDebugContext) {
@@ -389,7 +395,7 @@ if (typeof window !== 'undefined') {
       const now = performance.now();
       const gap = Math.round(now - lastTick);
       lastTick = now;
-      if (gap > 80) push({ ev: 'stall', gap });
+      if (gap > 80 && gap < 10000) push({ ev: 'stall', gap });
     }, 50);
 
     if (typeof PerformanceObserver !== 'undefined') {
@@ -405,7 +411,7 @@ if (typeof window !== 'undefined') {
       }
     }
 
-    const flushOnHide = () => flush();
+    const flushOnHide = () => flush(true);
     window.addEventListener('pagehide', flushOnHide);
     window.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') flushOnHide();

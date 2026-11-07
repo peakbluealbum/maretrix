@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { color } from 'folds';
 import {
   getTranslateX,
   NATIVE_EASE_OUT,
@@ -58,6 +59,12 @@ export function SwipeableChatWrapper({
       SETTLE_MS,
       () => {
         settleRef.current = undefined;
+        // De-promote once the room is at rest. Leaving a permanent `translate3d` + `will-change`
+        // here makes the whole room — header and timeline together — a single composited layer:
+        // WebKit then rasterises the header icons at layer resolution (the blur/glow in the PWA)
+        // and drops tiles from the scrolling timeline inside that layer.
+        element.style.transform = '';
+        element.style.willChange = '';
       }
     );
   }, [cancelSettle, setOffset]);
@@ -66,6 +73,7 @@ export function SwipeableChatWrapper({
     (distanceX: number) => {
       if (!gestureActiveRef.current) {
         gestureActiveRef.current = true;
+        if (contentRef.current) contentRef.current.style.willChange = 'transform';
         cancelSettle();
       }
 
@@ -133,17 +141,18 @@ export function SwipeableChatWrapper({
         flexGrow: 1,
         height: '100%',
         width: '100%',
+        // Without a colour here, translating the room during a swipe reveals whatever is behind it —
+        // which is the white the owner sees flashing when swiping back to the channel list.
+        background: color.Surface.Container,
       }}
     >
       <div
         ref={contentRef}
         style={{
-          transform: 'translate3d(0, 0, 0)',
           display: 'flex',
           flexDirection: 'column',
           flexGrow: 1,
           height: '100%',
-          willChange: 'transform',
         }}
       >
         {children}

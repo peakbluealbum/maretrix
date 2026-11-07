@@ -1528,15 +1528,6 @@ export function RoomTimeline({
     () => processedEvents.map((event) => event.id),
     [processedEvents]
   );
-  const previousProcessedEventIds = previousProcessedEventIdsRef.current;
-  const shouldShift =
-    previousProcessedEventIds !== undefined &&
-    processedEventIds.length > previousProcessedEventIds.length &&
-    previousProcessedEventIds.every(
-      (id, index) =>
-        id ===
-        processedEventIds[index + processedEventIds.length - previousProcessedEventIds.length]
-    );
   useLayoutEffect(() => {
     const previousIds = previousProcessedEventIdsRef.current;
     timelineDebug.arrival(
@@ -1666,10 +1657,12 @@ export function RoomTimeline({
           overflow: 'hidden',
           position: 'relative',
           // A tile that WebKit drops on a freshly mounted virtual list shows whatever is behind
-          // the timeline, which was the window colour. Paint the room background here, on the
+          // the timeline, which was the window colour. Paint the room surface here, on the
           // wrapper rather than the scroller: the wrapper is a separate element, so its background
-          // is not part of the layer whose tiles get dropped.
-          background: color.Background.Container,
+          // is not part of the layer whose tiles get dropped. `Surface.Container` is the token the
+          // native app puts behind the timeline (#121e35 dark / #e6ecf5 light); using
+          // `Background.Container` instead made the timeline a shade darker than the composer.
+          background: color.Surface.Container,
           opacity: hideTimelineForRoomState ? 0 : 1,
         }}
       >
