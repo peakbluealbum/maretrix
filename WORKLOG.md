@@ -170,6 +170,13 @@
 
 ## Decisions
 
+- **The plain path drives its own first backfill.** Backfill lives in the scroll handler, and a window that
+  does not overflow emits no scroll event, so a room sync opens with a few events stays at thosefew rows.
+  virtua's initial scroll-to-bottom emitted a scroll event even for a short list; `scrollTop` assignment on a
+  non-overflowing plain scroller emits nothing. The fill sets `{start: 0, end: min(total-1, cap-1)}` explicitly
+  (`growWindow` is a no-op at `start` 0), stops when a page adds no events, and is bounded to five attempts.
+  It does **not** cover a collapsed scroller: `scrollHeight > 1` at `clientHeight === 0` returns early, which
+  only the chain numbers can decide.
 - **Timeline layout is measured, not inferred.** `tests/e2e/plain-timeline-chain.spec.ts` (Playwright
   project `webkit-ios`, iPhone descriptor, `?plainlist=1`) loads the real app, opens a room and prints
   `PLAIN_CHAIN` with the scroller, content, wrapper, wrapper parent, viewport and inner column heights.
