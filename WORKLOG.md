@@ -93,6 +93,18 @@
    now holds once the reader leaves the bottom (`plainHold`), prepended rows are compensated with a
    `scrollHeight` delta, and hold is released when the reader returns to the bottom. `517d2cb`,
    container started `2026-11-11T09:12:02Z`, image `sha256:25d1d612c9be…`, edge `page-B0ZJ2r9N.js`.
+
+   **2026-11-11 (fifth run): `32ce410` — inset.** Deployed `2026-11-11T09:45:32Z`, image
+   `sha256:76496f8d1833…`, edge `page-bFQ5k_ii.js`. The scroller is `position: absolute; inset: 0`,
+   which never asks a percentage question.
+
+   **Why `dc77085` looked verified and was not:** the Chromium harness gave the wrapper an explicit
+   height. The real chain has none — `folds` `Box` defaults to `display: Flex` with no direction, so
+   the timeline's `<Box grow="Yes">` is a **row** container and the wrapper is a stretched row item
+   whose specified height is `auto`. `height: 100%` had no containing block to resolve against, so
+   the harness tested a box the DOM never has. A harness that supplies the missing containing block
+   cannot adjudicate a layout bug; it can only check the fix's arithmetic.
+
 2. **Root cause, named but unfixed.** On iOS WebKit the room mounts at **0 px** height; virtua turns
    that into its viewport, the box then expands, and WebKit drops the resize notification
    (`ResizeObserver loop completed with undelivered notifications`), leaving a one-row range —
