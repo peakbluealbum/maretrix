@@ -94,6 +94,16 @@
    `scrollHeight` delta, and hold is released when the reader returns to the bottom. `517d2cb`,
    container started `2026-11-11T09:12:02Z`, image `sha256:25d1d612c9be…`, edge `page-B0ZJ2r9N.js`.
 
+   **Real-user crash from the loop, 2026-11-11.** A user of the live PWA tapped the "new update"
+   banner and got the error boundary: `Minified React error #185` (maximum update depth exceeded),
+   stack frame in `assets/page-C8jcykVL.js` — the `dc77085` build, i.e. **before** the identity guard.
+   That is the unguarded `setPlainWindow` in the reconcile effect @review caught, confirmed in the
+   wild rather than merely inferred. Fixed in `ac45e4e`/`32ce410`; the edge is on `32ce410`. A reload
+   re-serves the same precache, so the recovery is delete-and-re-add the home-screen app.
+   Also observed while checking: old chunk names are **not** retained — `/assets/page-C8jcykVL.js`
+   now answers `200` with the SPA shell (`7752` bytes = `index.html`), not a 404. A stale precache
+   that asks for a removed chunk therefore receives HTML where it expects JavaScript.
+
    **2026-11-11 (fifth run): `32ce410` — inset.** Deployed `2026-11-11T09:45:32Z`, image
    `sha256:76496f8d1833…`, edge `page-bFQ5k_ii.js`. The scroller is `position: absolute; inset: 0`,
    which never asks a percentage question.
