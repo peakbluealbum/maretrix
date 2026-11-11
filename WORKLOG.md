@@ -54,6 +54,11 @@
 
    Done when every row is filled and the item carries a verdict: **fixed** → peel the workarounds
    (Open #3); **not fixed** → fallback #4. Nothing else opens until then.
+
+   **2026-11-11: measured, not fixed.** Blank on every room change (1.1.0 at least kept the latest
+   message), occasional bottom gap, and the RO loop now fires on every scroll — up to 18 repeats —
+   rather than only at mount. Fallback #4 opens; evidence and rows live in
+   [`docs/1.1.1-ios-device-pass/2026-11-11/`](docs/1.1.1-ios-device-pass/2026-11-11/notes.md).
 2. **Root cause, named but unfixed.** On iOS WebKit the room mounts at **0 px** height; virtua turns
    that into its viewport, the box then expands, and WebKit drops the resize notification
    (`ResizeObserver loop completed with undelivered notifications`), leaving a one-row range —
