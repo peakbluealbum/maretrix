@@ -45,6 +45,7 @@ import { getMemberDisplayName } from '$utils/room/display';
 import { isMobileTauri } from '$utils/platform';
 import {
   anchorWindow,
+  compensateForAnchor,
   compensateForPrepend,
   containsIndex,
   EMPTY_WINDOW,
@@ -472,10 +473,12 @@ export function RoomTimeline({
   // bottom or paginated backwards. Without it every backward page is undone by the next reconcile,
   // which re-slices the newest 150 rows and throws the reader forward a page at a time.
   const [plainHold, setPlainHold] = useState(false);
-  const plainShiftRef = useRef<{ firstId?: string; start: number; height: number }>({
-    start: -1,
-    height: 0,
-  });
+  const plainShiftRef = useRef<{
+    firstId?: string;
+    firstTop: number;
+    start: number;
+    height: number;
+  }>({ firstTop: 0, start: -1, height: 0 });
   const { isScrolling: isTimelineScrolling, notifyScroll } = useScrollActivity();
   const [atBottomState, setAtBottomState] = useState(true);
   const atBottomRef = useRef(atBottomState);
@@ -1037,7 +1040,7 @@ export function RoomTimeline({
     // The next room inherits nothing: not the hold, not the window, not the last measured height.
     setPlainHold(false);
     setPlainWindow(EMPTY_WINDOW);
-    plainShiftRef.current = { start: -1, height: 0 };
+    plainShiftRef.current = { firstTop: 0, start: -1, height: 0 };
     plainFillAttemptsRef.current = 0;
     plainFillLengthRef.current = 0;
     plainFillWaitRef.current = { key: '', count: 0 };
@@ -1697,10 +1700,11 @@ export function RoomTimeline({
   }, [plainTimeline, processedEvents, firstRenderedId, plainHold]);
 
   /**
-   * Keep the viewport on the same rows when content height changes above it.
+   * Keep the reader on the same row.
    *
-   * Runs after the reconcile effect, so it measures the height *with* the extension applied. The
-   * correction is the measured `scrollHeight` delta — no row estimates, no index arithmetic.
+   * Measured against that row's own position in the viewport rather than against `scrollHeight`:
+   * a window at its cap slides forward as it grows, so rows are added above *and* removed below in
+   * one commit and the height delta is zero while the content under the viewport has moved.
    */
   useLayoutEffect(() => {
     if (!plainTimeline) return;
@@ -1709,16 +1713,30 @@ export function RoomTimeline({
 
     const previous = plainShiftRef.current;
     const height = el.scrollHeight;
-    const prepended =
-      previous.firstId !== undefined &&
-      previous.firstId !== firstRenderedId &&
-      processedEvents.some((event) => event.id === previous.firstId);
+    const anchor = previous.firstId
+      ? el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(previous.firstId)}"]`)
+      : null;
 
-    if (prepended && previous.height > 0) {
+    // Content-space offset: viewport-relative positions move when the reader scrolls, and
+    // correcting against those would undo the gesture.
+    const contentTop = (row: HTMLElement) =>
+      el.scrollTop + row.getBoundingClientRect().top - el.getBoundingClientRect().top;
+
+    if (anchor && previous.firstTop !== 0) {
+      const top = contentTop(anchor);
+      el.scrollTop = compensateForAnchor(el.scrollTop, previous.firstTop, top);
+    } else if (previous.firstId !== undefined && previous.height > 0) {
+      // The anchor row left the window (a cap trim past it): fall back to the height delta.
       el.scrollTop = compensateForPrepend(el.scrollTop, previous.height, height);
     }
 
-    plainShiftRef.current = { firstId: firstRenderedId, start: plainWindow.start, height };
+    const firstRow = el.querySelector<HTMLElement>('[data-message-id]');
+    plainShiftRef.current = {
+      firstId: firstRow?.dataset.messageId,
+      firstTop: firstRow ? contentTop(firstRow) : 0,
+      start: plainWindow.start,
+      height,
+    };
   }, [plainTimeline, processedEvents, firstRenderedId, plainRows.length, plainWindow.start]);
 
   useLayoutEffect(() => {

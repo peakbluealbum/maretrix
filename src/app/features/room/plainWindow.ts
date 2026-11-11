@@ -153,3 +153,19 @@ export function shouldRequestBackfill(
 ): boolean {
   return w.start === 0 && canPaginateBack && paginationIdle;
 }
+
+/**
+ * Keep the reader on the same row by that row's position in the **scrolled content**.
+ *
+ * Content-space, not viewport-space: a viewport measurement changes when the reader simply scrolls,
+ * and correcting for it would fight the gesture. Unlike the `scrollHeight` delta this is exact when
+ * rows are added above *and* removed below in the same commit (a window at its cap slides forward as
+ * it grows), because the height is unchanged while the content under the viewport is not.
+ */
+export function compensateForAnchor(
+  scrollTop: number,
+  previousTop: number,
+  currentTop: number
+): number {
+  return Math.max(0, scrollTop + (currentTop - previousTop));
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   anchorWindow,
+  compensateForAnchor,
   compensateForPrepend,
   extendForPrepend,
   containsIndex,
@@ -200,5 +201,24 @@ describe('shouldRequestBackfill', () => {
   it('refuses without a backward token or while a page is in flight', () => {
     expect(shouldRequestBackfill({ start: 0, end: 149 }, false, true)).toBe(false);
     expect(shouldRequestBackfill({ start: 0, end: 149 }, true, false)).toBe(false);
+  });
+});
+
+describe('compensateForAnchor', () => {
+  it('follows the row when everything above it grows', () => {
+    // The row sat 40 px below the top of the viewport and now sits 640 px down.
+    expect(compensateForAnchor(0, 40, 640)).toBe(600);
+  });
+
+  it('stays put when the row did not move', () => {
+    expect(compensateForAnchor(1200, 40, 40)).toBe(1200);
+  });
+
+  it('pulls back when rows above were trimmed', () => {
+    expect(compensateForAnchor(900, 40, -260)).toBe(600);
+  });
+
+  it('clamps at the top of the list', () => {
+    expect(compensateForAnchor(10, 40, -500)).toBe(0);
   });
 });
