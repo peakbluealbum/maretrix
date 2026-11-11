@@ -71,6 +71,12 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-11 — landmark on `29d8c07`:** encrypted rooms load without crashing, the timeline paints on
+   every channel switch, hard flings are no longer jittery. Unencrypted and encrypted both pass; the one
+   remaining defect was the history jump on scroll-up, caused by using a row's absolute index as a prepend
+   count. Fixed in `d8943fa` with the case pinned at a 2,600-row window; `63c5c74` corrects the assertion
+   to the row the reader was actually on. Deployed to staging `11:47:10Z`, chunk `page-CzahqwkQ.js`.
+
    **2026-11-11 — `29d8c07` on staging** (started `11:28:20Z`, edge chunk `page-CRJVdBa0.js`), the
    first candidate with the update-storm guard. The decisive test is an encrypted room: `plain-fill`
    should read 2 with no repeats and `RoomState.events` should stay flat.
