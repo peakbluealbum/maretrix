@@ -79,9 +79,9 @@
    during measurement, `0.51.3` viewport measurement with `position: fixed`, `0.52.10` blank viewport
    after hidden/detached, `0.53.6` blank viewport when scrolled before mount, `0.54.0` suppress the
    ResizeObserver loop error.
-3. **Peel the workaround stack.** The 1px width nudge, rAF re-measure, `pinHeight` observer and
-   first-paint hold each compensate for 0.50.x behaviour. Remove them one at a time against a
-   measured pass, not all at once.
+3. **Peel the workaround stack — retired for 1.1.1.** On WebKit the stack disappears with virtua: the
+   plain list replaces it wholesale, so there is nothing to peel. On every other platform the
+   workarounds stay exactly as they are. No peel pass ships in this release.
 4. **Fallback if 0.54.2 still fails:** on WebKit, render a bounded plain list (last ~150 messages,
    `content-visibility: auto`, `contain-intrinsic-size`) instead of virtualizing. Rooms at this size
    do not need true virtualization; this removes the measurement dependency entirely.
