@@ -465,6 +465,8 @@ export function RoomTimeline({
   // WebKit renders a bounded plain list instead of virtua (fallback #4, 1.1.1).
   const plainTimeline = usePlainTimeline();
   const [plainWindow, setPlainWindow] = useState<PlainWindow>(EMPTY_WINDOW);
+  const plainWindowRef = useRef(plainWindow);
+  plainWindowRef.current = plainWindow;
   // Hold mode: the window stops following the live tail once the reader has scrolled away from the
   // bottom or paginated backwards. Without it every backward page is undone by the next reconcile,
   // which re-slices the newest 150 rows and throws the reader forward a page at a time.
@@ -1641,18 +1643,16 @@ export function RoomTimeline({
   // the window has slid. Kept as a plain value so the effects depend on an id, not an array.
   const firstRenderedId = plainRows[0]?.id;
 
-  /** Only commit a window that actually changed — every helper returns a fresh object. */
-  const commitPlainWindow = useCallback((next: PlainWindow, prev: PlainWindow) => {
-    return next.start === prev.start && next.end === prev.end ? prev : next;
-  }, []);
-
   useLayoutEffect(() => {
     if (!plainTimeline) return;
     const total = processedEvents.length;
+    const current = plainWindowRef.current;
+
     if (total === 0) {
-      setPlainWindow((prev) => (windowLength(prev) === 0 ? prev : EMPTY_WINDOW));
+      if (windowLength(current) !== 0) setPlainWindow(EMPTY_WINDOW);
       return;
     }
+
     const anchorId = scrollAnchorRef.current;
     const anchorIndex =
       anchorId === undefined ? -1 : processedEvents.findIndex((event) => event.id === anchorId);
@@ -1667,23 +1667,26 @@ export function RoomTimeline({
         ? processedEvents.findIndex((event) => event.id === previousFirstId)
         : -1;
 
-    setPlainWindow((prev) => {
-      let next: PlainWindow;
-      // A window that already moved is a grow-back, not a page prepend: the extra rows are already
-      // in it, and only the scroll compensation is owed.
-      const windowMoved = prev.start !== renderedStart;
-      if (prependCount > 0 && !windowMoved && (plainHold || anchorIndex >= 0)) {
-        next = extendForPrepend(prev, total, prependCount);
-      } else if (anchorIndex >= 0) {
-        next = containsIndex(prev, anchorIndex)
-          ? reconcileWindow(prev, total, true, anchorIndex)
-          : anchorWindow(total, anchorIndex);
-      } else {
-        next = reconcileWindow(prev, total, plainHold);
-      }
-      return commitPlainWindow(next, prev);
-    });
-  }, [plainTimeline, processedEvents, firstRenderedId, plainHold, commitPlainWindow]);
+    let next: PlainWindow;
+    // A window that already moved is a grow-back, not a page prepend: the extra rows are already
+    // in it, and only the scroll compensation is owed.
+    const windowMoved = current.start !== renderedStart;
+    if (prependCount > 0 && !windowMoved && (plainHold || anchorIndex >= 0)) {
+      next = extendForPrepend(current, total, prependCount);
+    } else if (anchorIndex >= 0) {
+      next = containsIndex(current, anchorIndex)
+        ? reconcileWindow(current, total, true, anchorIndex)
+        : anchorWindow(total, anchorIndex);
+    } else {
+      next = reconcileWindow(current, total, plainHold);
+    }
+
+    // Only touch state when the window actually changes. Calling `setPlainWindow` on every render
+    // (the helpers always return a fresh object, and `processedEvents` is a new array each render)
+    // buried React in nested updates: on the device that surfaced as #185 with 51 RoomState
+    // listeners while a page was filling.
+    if (next.start !== current.start || next.end !== current.end) setPlainWindow(next);
+  }, [plainTimeline, processedEvents, firstRenderedId, plainHold]);
 
   /**
    * Keep the viewport on the same rows when content height changes above it.
@@ -1789,7 +1792,10 @@ export function RoomTimeline({
       debugCtx()
     );
     void timelineSyncRef.current.handleTimelinePagination(true);
-    setPlainWindow({ start: 0, end: Math.min(total - 1, PLAIN_MAX_ROWS - 1) });
+    const fillEnd = Math.min(total - 1, PLAIN_MAX_ROWS - 1);
+    if (plainWindowRef.current.start !== 0 || plainWindowRef.current.end !== fillEnd) {
+      setPlainWindow({ start: 0, end: fillEnd });
+    }
   }, [
     plainTimeline,
     processedEvents.length,
