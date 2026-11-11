@@ -1,9 +1,6 @@
 // oxlint-disable no-console
-import type { RectCords } from 'folds';
-import { Avatar, Box, Chip, Text, Tooltip, as, config, toRem } from 'folds';
-import { TooltipProvider } from '$components/overlay-stack';
-import { PopOut } from '$components/overlay-stack';
-import type { JSX, KeyboardEventHandler, MouseEventHandler, MouseEvent, ReactNode } from 'react';
+import { Avatar, Box, Chip, Text, as, config } from 'folds';
+import type { JSX, MouseEventHandler, MouseEvent, ReactNode } from 'react';
 import {
   memo,
   useCallback,
@@ -25,7 +22,6 @@ import {
   CompactLayout,
   MessageBase,
   ModernLayout,
-  PronounPill,
   Time,
   Username,
   UsernameBold,
@@ -36,7 +32,7 @@ import { getMxIdLocalPart, mxcUrlToHttp } from '$utils/matrix';
 import { parseExternalGif } from '$utils/externalGif';
 import { parseLegacyKlipyGif } from '$utils/klipy';
 import type { MessageSpacing } from '$state/settings';
-import { getSettings, MessageLayout, settingsAtom } from '$state/settings';
+import { MessageLayout, settingsAtom } from '$state/settings';
 import { useMatrixClient } from '$hooks/useMatrixClient';
 import { UserAvatar } from '$components/user-avatar';
 import { getMatrixToRoomEvent } from '$plugins/matrix-to';
@@ -52,7 +48,7 @@ import { isMobileOrTablet } from '$utils/platform';
 import { useUserProfile } from '$hooks/useUserProfile';
 import { useRoomMemberHydration } from '$hooks/useRoomMemberHydration';
 import { useSetting } from '$state/hooks/settings';
-import { filterPronounsByLanguage, getParsedPronouns } from '$utils/pronouns';
+import { getParsedPronouns } from '$utils/pronouns';
 import type { PronounSet } from '$utils/pronouns';
 import { useMentionClickHandler } from '$hooks/useMentionClickHandler';
 import type { PerMessageProfileBeeperFormat } from '$hooks/usePerMessageProfile';
@@ -129,133 +125,15 @@ import { ThemeKind, useActiveTheme } from '$hooks/useTheme';
 import { useAccessibleNameColor } from '$hooks/useAccessibleNameColor';
 import { shouldIgnoreMessageLongPress } from './messageTouch';
 
-const clamp = (str: string, len: number) => (str.length > len ? `${str.slice(0, len)}...` : str);
-
-type MorePronounsPillProps = {
-  pronouns: PronounSet[];
-  tagColor: string;
-  maxPillLength: number;
-};
-
-function MorePronounsPill({ pronouns, tagColor, maxPillLength }: MorePronounsPillProps) {
-  const [anchor, setAnchor] = useState<RectCords | undefined>();
-
-  const toggleAnchor = (target: HTMLElement) => {
-    setAnchor((prev) => (prev ? undefined : target.getBoundingClientRect()));
-  };
-
-  const handleClick: MouseEventHandler<HTMLElement> = (e) => {
-    e.stopPropagation();
-    toggleAnchor(e.currentTarget);
-  };
-
-  const handleKeyDown: KeyboardEventHandler<HTMLElement> = (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    e.preventDefault();
-    e.stopPropagation();
-    toggleAnchor(e.currentTarget);
-  };
-
-  // On mobile, tapping the pill pins the tooltip open.
-  // Tapping anywhere else dismisses it.
-  useEffect(() => {
-    if (!anchor) return undefined;
-    const dismiss = () => setAnchor(undefined);
-    document.addEventListener('click', dismiss, { once: true });
-    return () => document.removeEventListener('click', dismiss);
-  }, [anchor]);
-
-  const tooltipText = pronouns.map((p) => clamp(p.summary, maxPillLength)).join(', ');
-
-  const tooltipContent = (
-    <Tooltip style={{ maxWidth: toRem(250) }}>
-      <Text size="T200">{tooltipText}</Text>
-    </Tooltip>
-  );
-
-  return (
-    <>
-      <TooltipProvider position="Top" tooltip={tooltipContent}>
-        {(triggerRef) => (
-          <PronounPill
-            ref={triggerRef as React.Ref<HTMLSpanElement>}
-            style={{ color: tagColor, cursor: 'help' }}
-            onClick={handleClick}
-            onKeyDown={handleKeyDown}
-            role="button"
-            tabIndex={0}
-          >
-            ...
-          </PronounPill>
-        )}
-      </TooltipProvider>
-      {anchor && (
-        <PopOut anchor={anchor} position="Top" align="Center" content={tooltipContent}>
-          {null}
-        </PopOut>
-      )}
-    </>
-  );
-}
-
-/**
- * Component to render pronouns in the chat timeline.
- * It also filters them.
- */
+/** daiwascarlet: pronoun pills removed; kept so existing call sites keep their props. */
 export const Pronouns = as<
   'span',
   {
     pronouns?: PronounSet[];
     tagColor: string;
   }
->(({ as: AsPronouns = 'span', pronouns, tagColor, ...props }, ref) => {
-  // daiwascarlet: pronoun pills removed.
-  return null;
+>(() => null);
 
-  const languageFilterEnabled = getSettings().filterPronounsBasedOnLanguage ?? false;
-  // if no language is given use english
-  const selectedLanguages = (getSettings().filterPronounsLanguages ?? ['en'])
-    .map((lang: string) => lang.trim().toLowerCase())
-    .filter(Boolean);
-
-  /**
-   * filter the pronouns based on the user's language settings.
-   * If filtering is enabled, only show pronouns that match the selected languages.
-   * If filtering is disabled, show all pronouns but still apply the language filter to determine which pronouns to show if there are multiple sets of pronouns for different languages.
-   * If there are multiple sets of pronouns and filtering is enabled, only show the ones that match the selected languages.
-   * If there are no pronouns that match the selected languages, show all pronouns.
-   */
-  const visiblePronouns = filterPronounsByLanguage(
-    pronouns,
-    languageFilterEnabled,
-    selectedLanguages
-  );
-
-  const limit = getSettings().pronounPillMaxCount ?? (isMobileOrTablet() ? 1 : 3);
-  const maxPillLength = getSettings().pronounPillMaxLength ?? 16;
-
-  // if language specific pronouns can't be found matching the filter return unfiltered
-  if (visiblePronouns.length === 0) {
-    visiblePronouns.push(...pronouns);
-  }
-
-  return (
-    <AsPronouns {...props} ref={ref}>
-      {visiblePronouns.slice(0, limit).map((p) => (
-        <PronounPill key={p.summary} style={{ color: tagColor }}>
-          {clamp(p.summary, maxPillLength)}
-        </PronounPill>
-      ))}
-      {visiblePronouns.length > limit && (
-        <MorePronounsPill
-          pronouns={visiblePronouns.slice(limit)}
-          tagColor={tagColor}
-          maxPillLength={maxPillLength}
-        />
-      )}
-    </AsPronouns>
-  );
-});
 type WrappedMessageProps = {
   headerJSX: JSX.Element;
   avatarJSX: JSX.Element;

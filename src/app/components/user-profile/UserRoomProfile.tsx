@@ -46,8 +46,7 @@ import {
 } from '$plugins/react-custom-html-parser';
 import { useSpoilerClickHandler } from '$hooks/useSpoilerClickHandler';
 import { RenderBody } from '$components/message';
-import { getSettings, settingsAtom } from '$state/settings';
-import { filterPronounsByLanguage } from '$utils/pronouns';
+import { settingsAtom } from '$state/settings';
 import { useSetting } from '$state/hooks/settings';
 import { useSettingsLinkBaseUrl } from '$features/settings/useSettingsLinkBaseUrl';
 import { getMxIdServer } from '$utils/mxIdHelper';
@@ -103,7 +102,6 @@ const renderValue = (val: unknown) => {
 
 function UserExtendedSection({
   profile,
-  pmp,
   htmlReactParserOptions,
   linkifyOpts,
   innerColor,
@@ -114,20 +112,10 @@ function UserExtendedSection({
   const [miscDataIndex, setMiscDataIndex] = useState(-1);
   const screenSize = useScreenSizeContext();
 
-  const [renderAnimals] = useSetting(settingsAtom, 'renderAnimals');
   const [hour24Clock] = useSetting(settingsAtom, 'hour24Clock');
-
-  const isCat = profile.isCat === true;
-  const hasCats = profile.hasCats === true;
-  const isAnimal = profile.isAnimal ?? (isCat && 'cat');
-  const hasAnimal = profile.hasAnimal ?? (hasCats && 'cats');
-  const animalNeed = profile.animalNeed ?? 'headpats';
 
   // daiwascarlet: animal-identity status removed.
   const catStatusText = null;
-
-  const languageFilterEnabled = getSettings().filterPronounsBasedOnLanguage ?? false;
-  const languagesToFilterFor = getSettings().filterPronounsLanguages ?? ['en'];
 
   // daiwascarlet: pronouns removed.
   const pronouns = '';
