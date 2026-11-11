@@ -105,3 +105,35 @@ export function reconcileWindow(
   }
   return clamped;
 }
+
+/**
+ * Grow the window for rows prepended at the front while the reader is holding.
+ *
+ * Backward pagination inserts older rows at index 0, so every existing row shifts up by
+ * `prependCount`. `reconcileWindow` deliberately leaves `start` where it is — which means the rows
+ * the reader was looking at would fall out of the window — so `end` has to grow by the same count to
+ * keep them rendered. The paired scroll correction is `compensateForPrepend`.
+ */
+export function extendForPrepend(
+  w: PlainWindow,
+  total: number,
+  prependCount: number
+): PlainWindow {
+  if (prependCount <= 0 || total <= 0) return w;
+  const end = Math.min(total - 1, w.end + prependCount);
+  return { start: Math.max(0, Math.min(w.start, end - PLAIN_MAX_ROWS + 1)), end };
+}
+
+/**
+ * Keep the viewport on the same rows after the content height changed above it.
+ *
+ * `heightBefore`/`heightAfter` come from the scroller's own `scrollHeight`, so the correction is
+ * measured rather than derived from row estimates — the whole point of the plain path.
+ */
+export function compensateForPrepend(
+  scrollTop: number,
+  heightBefore: number,
+  heightAfter: number
+): number {
+  return Math.max(0, scrollTop + (heightAfter - heightBefore));
+}

@@ -45,8 +45,10 @@ import { getMemberDisplayName } from '$utils/room/display';
 import { isMobileTauri } from '$utils/platform';
 import {
   anchorWindow,
+  compensateForPrepend,
   containsIndex,
   EMPTY_WINDOW,
+  extendForPrepend,
   growWindow,
   reconcileWindow,
   windowLength,
@@ -466,7 +468,7 @@ export function RoomTimeline({
   // bottom or paginated backwards. Without it every backward page is undone by the next reconcile,
   // which re-slices the newest 150 rows and throws the reader forward a page at a time.
   const [plainHold, setPlainHold] = useState(false);
-  const plainShiftRef = useRef<{ start: number; height: number }>({ start: -1, height: 0 });
+  const plainShiftRef = useRef<{ firstId?: string; height: number }>({ height: 0 });
   const { isScrolling: isTimelineScrolling, notifyScroll } = useScrollActivity();
   const [atBottomState, setAtBottomState] = useState(true);
   const atBottomRef = useRef(atBottomState);
@@ -517,8 +519,6 @@ export function RoomTimeline({
 
   useEffect(() => {
     timelineDebug.mountTimeline(room.roomId);
-    // A new room starts at the live edge; hold mode belongs to the previous room's scroll session.
-    setPlainHold(false);
   }, [room.roomId]);
 
   useEffect(() => {
@@ -863,6 +863,10 @@ export function RoomTimeline({
           `[data-message-id="${anchorId}"]`
         );
         el?.scrollIntoView({ block: 'center' });
+        // The jump is done: hold the window where the reader landed, and release the anchor so
+        // edge pagination and live arrivals resume instead of re-centring on the target forever.
+        setPlainHold(true);
+        scrollAnchorRef.current = undefined;
       });
       return;
     }
@@ -1016,6 +1020,10 @@ export function RoomTimeline({
   useLayoutEffect(() => {
     if (timelineSync.eventsLength > 0) return;
     hasInitialScrolledRef.current = false;
+    // The next room inherits nothing: not the hold, not the window, not the last measured height.
+    setPlainHold(false);
+    setPlainWindow(EMPTY_WINDOW);
+    plainShiftRef.current = { height: 0 };
   }, [timelineSync.eventsLength]);
 
   const recalcTopSpacer = useCallback(() => {
@@ -1623,7 +1631,20 @@ export function RoomTimeline({
     const anchorId = scrollAnchorRef.current;
     const anchorIndex =
       anchorId === undefined ? -1 : processedEvents.findIndex((event) => event.id === anchorId);
+
+    // Rows prepended at the front shift every existing row up. Detect it by the first id, not by
+    // `start`: while holding, `start` deliberately does not move, so a start-based test never fires.
+    const firstId = processedEvents[0]?.id;
+    const previousFirstId = plainShiftRef.current.firstId;
+    const prependCount =
+      previousFirstId !== undefined && previousFirstId !== firstId
+        ? processedEvents.findIndex((event) => event.id === previousFirstId)
+        : -1;
+
     setPlainWindow((prev) => {
+      if (prependCount > 0 && (plainHold || anchorIndex >= 0)) {
+        return extendForPrepend(prev, total, prependCount);
+      }
       if (anchorIndex >= 0) {
         return containsIndex(prev, anchorIndex)
           ? reconcileWindow(prev, total, true, anchorIndex)
@@ -1633,20 +1654,31 @@ export function RoomTimeline({
     });
   }, [plainTimeline, processedEvents, plainHold]);
 
-  // Prepended rows change the content above the viewport, so the reader would be thrown down by the
-  // height of the page. Compensate with the scrollHeight delta — measured, not estimated.
+  /**
+   * Keep the viewport on the same rows when content height changes above it.
+   *
+   * Runs after the reconcile effect, so it measures the height *with* the extension applied. The
+   * correction is the measured `scrollHeight` delta — no row estimates, no index arithmetic.
+   */
   useLayoutEffect(() => {
     if (!plainTimeline) return;
     const el = messageListRef.current?.firstElementChild as HTMLElement | null;
     if (!el) return;
+
     const previous = plainShiftRef.current;
     const height = el.scrollHeight;
-    if (previous.start >= 0 && plainWindow.start < previous.start) {
-      const delta = height - previous.height;
-      if (delta !== 0) el.scrollTop += delta;
+    const firstId = processedEvents[0]?.id;
+    const prepended =
+      previous.firstId !== undefined &&
+      previous.firstId !== firstId &&
+      processedEvents.some((event) => event.id === previous.firstId);
+
+    if (prepended && previous.height > 0) {
+      el.scrollTop = compensateForPrepend(el.scrollTop, previous.height, height);
     }
-    plainShiftRef.current = { start: plainWindow.start, height };
-  }, [plainTimeline, plainWindow, plainRows.length]);
+
+    plainShiftRef.current = { firstId, height };
+  }, [plainTimeline, processedEvents, plainRows.length]);
 
   useLayoutEffect(() => {
     if (!plainTimeline) return undefined;

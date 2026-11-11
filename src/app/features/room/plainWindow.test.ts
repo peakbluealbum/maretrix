@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   anchorWindow,
+  compensateForPrepend,
+  extendForPrepend,
   containsIndex,
   EMPTY_WINDOW,
   growWindow,
@@ -96,6 +98,38 @@ describe('growWindow', () => {
     }
     expect(windowLength(back)).toBeLessThanOrEqual(PLAIN_MAX_ROWS);
     expect(back.start).toBe(0);
+  });
+});
+
+describe('prepend while holding', () => {
+  it('keeps the visible rows when a backward page prepends at the front', () => {
+    // Live in a short room: 30 rows, window {0,29}. A backward page prepends 20 more.
+    const held = { start: 0, end: 29 };
+    const grown = extendForPrepend(held, 50, 20);
+    expect(grown).toEqual({ start: 0, end: 49 });
+    // The old row 0 is now index 20 and is still inside the window — that is the whole point.
+    expect(containsIndex(grown, 20)).toBe(true);
+  });
+
+  it('slides the start when the extension would pass the cap', () => {
+    const held = { start: 100, end: 340 };
+    const grown = extendForPrepend(held, 1000, 100);
+    expect(windowLength(grown)).toBeLessThanOrEqual(PLAIN_MAX_ROWS);
+    expect(grown.end).toBe(440);
+  });
+
+  it('is a no-op when nothing was prepended', () => {
+    const held = { start: 10, end: 40 };
+    expect(extendForPrepend(held, 100, 0)).toEqual(held);
+  });
+
+  it('moves the viewport down by exactly the height added above it', () => {
+    // 20 rows at 40 px added above: the reader stays on the same message.
+    expect(compensateForPrepend(120, 3000, 3800)).toBe(920);
+  });
+
+  it('clamps at the top instead of going negative', () => {
+    expect(compensateForPrepend(50, 3000, 2800)).toBe(0);
   });
 });
 
