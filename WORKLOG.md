@@ -108,6 +108,11 @@
    `sha256:76496f8d1833…`, edge `page-bFQ5k_ii.js`. The scroller is `position: absolute; inset: 0`,
    which never asks a percentage question.
 
+   **2026-11-11 (sixth run): `ed2f1cf` — solver + the two production fixes.** Container started
+   `2026-11-11T10:03:10Z`, image `sha256:fb09b920f991…`, edge chunk `page-CNzCkQa2.js`. Verified from
+   outside the edge: an existing asset is `200 text/javascript` with `immutable`, a rotated chunk name
+   is now **404** (was `200 text/html` + `immutable`), deep routes and `/` still return the shell.
+
    **Why `dc77085` looked verified and was not:** the Chromium harness gave the wrapper an explicit
    height. The real chain has none — `folds` `Box` defaults to `display: Flex` with no direction, so
    the timeline's `<Box grow="Yes">` is a **row** container and the wrapper is a stretched row item
