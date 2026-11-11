@@ -137,3 +137,19 @@ export function compensateForPrepend(
 ): number {
   return Math.max(0, scrollTop + (heightAfter - heightBefore));
 }
+
+/**
+ * Whether a backward page should be fetched.
+ *
+ * Only when the window has actually reached the oldest loaded row: while `start > 0` there are
+ * rows in memory above the viewport, and fetching anyway puts a page above the reader that the
+ * height compensation can only partly account for — a ~50-row push per page, with `scrollTop`
+ * still inside the trigger zone so scrolling *down* fetches the next one.
+ */
+export function shouldRequestBackfill(
+  w: PlainWindow,
+  canPaginateBack: boolean,
+  paginationIdle: boolean
+): boolean {
+  return w.start === 0 && canPaginateBack && paginationIdle;
+}

@@ -51,6 +51,7 @@ import {
   extendForPrepend,
   growWindow,
   PLAIN_MAX_ROWS,
+  shouldRequestBackfill,
   reconcileWindow,
   windowLength,
   type PlainWindow,
@@ -1828,9 +1829,25 @@ export function RoomTimeline({
       plainScrollAtRef.current = now;
 
       const total = processedEventsRef.current.length;
-      if (el.scrollTop < 500 && timelineSyncRef.current.canPaginateBack) {
-        void timelineSyncRef.current.handleTimelinePagination(true);
-        setPlainWindow((prev) => growWindow(prev, total, 'back'));
+      if (el.scrollTop < 500) {
+        // Fetch only at the loaded edge. Inside a long loaded window there are already rows above
+        // the viewport; a page fetched there lands above and below the reader in one commit, and the
+        // measured delta cannot separate them — a ~50-row push per page, with scrollTop still in the
+        // trigger zone, so scrolling down fetched the next page and walked backwards through weeks.
+        if (
+          shouldRequestBackfill(
+            plainWindowRef.current,
+            timelineSyncRef.current.canPaginateBack,
+            timelineSyncRef.current.backwardStatus === 'idle'
+          )
+        ) {
+          void timelineSyncRef.current.handleTimelinePagination(true);
+        } else {
+          const next = growWindow(plainWindowRef.current, total, 'back');
+          if (next.start !== plainWindowRef.current.start || next.end !== plainWindowRef.current.end) {
+            setPlainWindow(next);
+          }
+        }
       } else if (distanceFromBottom < 500 && timelineSyncRef.current.canPaginateForward) {
         void timelineSyncRef.current.handleTimelinePagination(false);
         setPlainWindow((prev) => growWindow(prev, total, 'forward'));

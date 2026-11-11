@@ -11,6 +11,7 @@ import {
   PLAIN_LIVE_TAIL,
   PLAIN_MAX_ROWS,
   reconcileWindow,
+  shouldRequestBackfill,
   windowLength,
 } from './plainWindow';
 
@@ -184,5 +185,20 @@ describe('reconcileWindow', () => {
 
   it('is empty for an empty room', () => {
     expect(reconcileWindow(liveWindow(10), 0, false)).toEqual(EMPTY_WINDOW);
+  });
+});
+
+describe('shouldRequestBackfill', () => {
+  it('refuses while the window still has loaded rows above it', () => {
+    expect(shouldRequestBackfill({ start: 2600, end: 2749 }, true, true)).toBe(false);
+  });
+
+  it('allows at the loaded edge', () => {
+    expect(shouldRequestBackfill({ start: 0, end: 149 }, true, true)).toBe(true);
+  });
+
+  it('refuses without a backward token or while a page is in flight', () => {
+    expect(shouldRequestBackfill({ start: 0, end: 149 }, false, true)).toBe(false);
+    expect(shouldRequestBackfill({ start: 0, end: 149 }, true, false)).toBe(false);
   });
 });
