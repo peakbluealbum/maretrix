@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { UIEvent, ReactNode } from 'react';
 import {
   Fragment,
   useCallback,
@@ -43,6 +43,16 @@ import {
 } from '$utils/room/relations';
 import { getMemberDisplayName } from '$utils/room/display';
 import { isMobileTauri } from '$utils/platform';
+import {
+  anchorWindow,
+  containsIndex,
+  EMPTY_WINDOW,
+  growWindow,
+  reconcileWindow,
+  windowLength,
+  type PlainWindow,
+} from './plainWindow';
+import { usePlainTimeline } from './usePlainTimeline';
 import * as timelineDebug from './timelineDebug';
 import { useRoomNavigate } from '$hooks/useRoomNavigate';
 import { useSlidingSyncRoomLoading } from '$hooks/useSlidingSyncActiveRoom';
@@ -449,6 +459,9 @@ export function RoomTimeline({
   const setOpenThread = useSetAtom(openThreadAtom);
 
   const vListRef = useRef<VListHandle>(null);
+  // WebKit renders a bounded plain list instead of virtua (fallback #4, 1.1.1).
+  const plainTimeline = usePlainTimeline();
+  const [plainWindow, setPlainWindow] = useState<PlainWindow>(EMPTY_WINDOW);
   const { isScrolling: isTimelineScrolling, notifyScroll } = useScrollActivity();
   const [atBottomState, setAtBottomState] = useState(true);
   const atBottomRef = useRef(atBottomState);
@@ -833,8 +846,22 @@ export function RoomTimeline({
     const anchorId = scrollAnchorRef.current;
     if (!anchorId) return;
     const index = resolveFocusRowIndex(anchorId);
+
+    if (plainTimeline) {
+      if (index !== undefined) {
+        setPlainWindow(anchorWindow(processedEventsRef.current.length, index));
+      }
+      requestAnimationFrame(() => {
+        const el = messageListRef.current?.querySelector<HTMLElement>(
+          `[data-message-id="${anchorId}"]`
+        );
+        el?.scrollIntoView({ block: 'center' });
+      });
+      return;
+    }
+
     if (index !== undefined) vListRef.current?.scrollToIndex(index, { align: 'center' });
-  }, [resolveFocusRowIndex]);
+  }, [resolveFocusRowIndex, plainTimeline]);
 
   const restoreScrollPosition = useCallback(() => {
     if (scrollAnchorRef.current !== undefined) {
@@ -1561,6 +1588,82 @@ export function RoomTimeline({
   });
 
   processedEventsRef.current = processedEvents;
+
+  /**
+   * Fallback #4 (1.1.1): the WebKit plain list.
+   *
+   * Rows are real DOM, the window is a plain index range, and every scroll target comes from
+   * `scrollHeight` — no list measurement anywhere, because the measurement is the bug (virtua
+   * reported 635 px for a 33,370 px scroller on the device).
+   */
+  const plainRows = useMemo(
+    () =>
+      plainTimeline
+        ? processedEvents.slice(plainWindow.start, plainWindow.end + 1)
+        : processedEvents,
+    [plainTimeline, processedEvents, plainWindow]
+  );
+
+  const plainScrollAtRef = useRef(0);
+
+  useLayoutEffect(() => {
+    if (!plainTimeline) return;
+    const total = processedEvents.length;
+    if (total === 0) {
+      setPlainWindow((prev) => (windowLength(prev) === 0 ? prev : EMPTY_WINDOW));
+      return;
+    }
+    const anchorId = scrollAnchorRef.current;
+    const anchorIndex =
+      anchorId === undefined ? -1 : processedEvents.findIndex((event) => event.id === anchorId);
+    setPlainWindow((prev) => {
+      if (anchorIndex >= 0) {
+        return containsIndex(prev, anchorIndex)
+          ? reconcileWindow(prev, total, true, anchorIndex)
+          : anchorWindow(total, anchorIndex);
+      }
+      return reconcileWindow(prev, total, false);
+    });
+  }, [plainTimeline, processedEvents]);
+
+  useLayoutEffect(() => {
+    if (!plainTimeline) return undefined;
+    const el = messageListRef.current?.firstElementChild as HTMLElement | null;
+    if (!el || processedEvents.length === 0) return undefined;
+
+    if (!hasInitialScrolledRef.current) {
+      hasInitialScrolledRef.current = true;
+      el.scrollTop = el.scrollHeight;
+      setIsReady(true);
+      return undefined;
+    }
+    if (atBottomRef.current) el.scrollTop = el.scrollHeight;
+    return undefined;
+  }, [plainTimeline, processedEvents.length, plainRows.length]);
+
+  const handlePlainScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      const el = event.currentTarget;
+      notifyScroll();
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      const isNowAtBottom = distanceFromBottom < 100;
+      if (isNowAtBottom !== atBottomRef.current) setAtBottom(isNowAtBottom);
+
+      const now = Date.now();
+      if (now - plainScrollAtRef.current < 300) return;
+      plainScrollAtRef.current = now;
+
+      const total = processedEventsRef.current.length;
+      if (el.scrollTop < 500 && timelineSyncRef.current.canPaginateBack) {
+        void timelineSyncRef.current.handleTimelinePagination(true);
+        setPlainWindow((prev) => growWindow(prev, total, 'back'));
+      } else if (distanceFromBottom < 500 && timelineSyncRef.current.canPaginateForward) {
+        void timelineSyncRef.current.handleTimelinePagination(false);
+        setPlainWindow((prev) => growWindow(prev, total, 'forward'));
+      }
+    },
+    [notifyScroll, setAtBottom]
+  );
   const previousProcessedEventIdsRef = useRef<string[] | undefined>(undefined);
   const processedEventIds = useMemo(
     () => processedEvents.map((event) => event.id),
@@ -1705,55 +1808,98 @@ export function RoomTimeline({
         }}
       >
         <TimelineScrollingProvider value={isTimelineScrolling}>
-          <VList<ProcessedEvent>
-            key={timelineListKey}
-            ref={vListRef}
-            data={processedEvents}
-            // `shift` is virtua's own scroll compensation for items prepended to the list. This
-            // timeline already compensates manually (`restoreScrollPosition`, `scrollAnchorRef`,
-            // the top spacer), and the two fighting is a candidate for the empty viewport the
-            // recording shows mid-fling: correct `scrollSize`, one 54 px row rendered. Off for now;
-            // the app's own anchoring has to carry it.
-            shift={false}
-            id="timeline-scroller"
-            className={css.messageList}
-            style={{
-              flex: 1,
-              minHeight: 0,
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              paddingTop: topSpacerHeight > 0 ? topSpacerHeight : config.space.S600,
-              paddingBottom: config.space.S600,
-            }}
-            onScroll={handleVListScroll}
-            onScrollEnd={handleVListScrollEnd}
-          >
-            {(eventData, index) => (
-              <MemoizedTimelineItem
-                key={
-                  eventData
-                    ? `${eventData.id}:${eventData.isRedacted ? 'redacted' : 'message'}`
-                    : `placeholder-${index}`
-                }
-                eventData={eventData}
-                index={index}
-                showLoadingPlaceholders={showLoadingPlaceholders}
-                canPaginateBack={timelineSync.canPaginateBack}
-                backPaginationJSX={backPaginationJSX}
-                room={room}
-                messageLayout={messageLayout}
-                messageSpacing={messageSpacing}
-                settings={settings as unknown as Record<string, unknown>}
-                permissions={rowPermissions}
-                renderMatrixEvent={renderMatrixEvent}
-                focusItem={timelineSync.focusItem}
-                editId={editId}
-                activeReplyId={activeReplyId}
-                openThreadId={openThreadId}
-              />
-            )}
-          </VList>
+          {plainTimeline ? (
+            <div
+              id="timeline-scroller"
+              data-testid="timeline-plain"
+              className={css.messageList}
+              style={{
+                flex: 1,
+                minHeight: 0,
+                width: '100%',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                paddingTop: config.space.S600,
+                paddingBottom: config.space.S600,
+                // The browser's own scroll anchoring fights the explicit window arithmetic on a
+                // plain list: rows above the viewport are added and dropped by the reducer.
+                overflowAnchor: 'none',
+              }}
+              onScroll={handlePlainScroll}
+            >
+              {plainRows.map((eventData, index) => (
+                <MemoizedTimelineItem
+                  key={`${eventData.id}:${eventData.isRedacted ? 'redacted' : 'message'}`}
+                  eventData={eventData}
+                  index={plainWindow.start + index}
+                  showLoadingPlaceholders={showLoadingPlaceholders}
+                  canPaginateBack={timelineSync.canPaginateBack}
+                  backPaginationJSX={backPaginationJSX}
+                  room={room}
+                  messageLayout={messageLayout}
+                  messageSpacing={messageSpacing}
+                  settings={settings as unknown as Record<string, unknown>}
+                  permissions={rowPermissions}
+                  renderMatrixEvent={renderMatrixEvent}
+                  focusItem={timelineSync.focusItem}
+                  editId={editId}
+                  activeReplyId={activeReplyId}
+                  openThreadId={openThreadId}
+                />
+              ))}
+            </div>
+          ) : (
+            <VList<ProcessedEvent>
+              key={timelineListKey}
+              ref={vListRef}
+              data={processedEvents}
+              // `shift` is virtua's own scroll compensation for items prepended to the list. This
+              // timeline already compensates manually (`restoreScrollPosition`, `scrollAnchorRef`,
+              // the top spacer), and the two fighting is a candidate for the empty viewport the
+              // recording shows mid-fling: correct `scrollSize`, one 54 px row rendered. Off for now;
+              // the app's own anchoring has to carry it.
+              shift={false}
+              id="timeline-scroller"
+              className={css.messageList}
+              style={{
+                flex: 1,
+                minHeight: 0,
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                paddingTop: topSpacerHeight > 0 ? topSpacerHeight : config.space.S600,
+                paddingBottom: config.space.S600,
+              }}
+              onScroll={handleVListScroll}
+              onScrollEnd={handleVListScrollEnd}
+            >
+              {(eventData, index) => (
+                <MemoizedTimelineItem
+                  key={
+                    eventData
+                      ? `${eventData.id}:${eventData.isRedacted ? 'redacted' : 'message'}`
+                      : `placeholder-${index}`
+                  }
+                  eventData={eventData}
+                  index={index}
+                  showLoadingPlaceholders={showLoadingPlaceholders}
+                  canPaginateBack={timelineSync.canPaginateBack}
+                  backPaginationJSX={backPaginationJSX}
+                  room={room}
+                  messageLayout={messageLayout}
+                  messageSpacing={messageSpacing}
+                  settings={settings as unknown as Record<string, unknown>}
+                  permissions={rowPermissions}
+                  renderMatrixEvent={renderMatrixEvent}
+                  focusItem={timelineSync.focusItem}
+                  editId={editId}
+                  activeReplyId={activeReplyId}
+                  openThreadId={openThreadId}
+                />
+              )}
+            </VList>
+          )}
         </TimelineScrollingProvider>
       </div>
       {selectedMediaEventId && (

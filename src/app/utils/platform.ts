@@ -39,6 +39,21 @@ export function isMacOS(): boolean {
   return ua.os.name === 'Mac OS' || ua.os.name === 'macOS';
 }
 
+/**
+ * iOS on WebKit — the engine that mis-measures a freshly mounted virtual list.
+ *
+ * Deliberately no engine exclusion for `CriOS|FxiOS|EdgiOS|OPiOS`: Apple requires WebKit on iOS,
+ * those UA tokens only mark the browser skin, and they are exactly the users who would otherwise
+ * stay on the broken virtual path while also being invisible to the timeline sampler.
+ */
+export function isIOSWebKit(): boolean {
+  const { userAgent, platform, maxTouchPoints } = window.navigator;
+  const isIOS =
+    /iPad|iPhone|iPod/.test(userAgent) || (platform === 'MacIntel' && maxTouchPoints > 1);
+  if (getTauriOS() === 'ios') return true;
+  return isIOS;
+}
+
 export function iosApp(): boolean {
   return getTauriOS() === 'ios';
 }
