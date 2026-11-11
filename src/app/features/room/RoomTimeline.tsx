@@ -1037,6 +1037,7 @@ export function RoomTimeline({
     plainShiftRef.current = { start: -1, height: 0 };
     plainFillAttemptsRef.current = 0;
     plainFillLengthRef.current = 0;
+    plainFillWaitRef.current = { key: '', count: 0 };
   }, [timelineSync.eventsLength]);
 
   const recalcTopSpacer = useCallback(() => {
@@ -1635,6 +1636,7 @@ export function RoomTimeline({
   const plainScrollAtRef = useRef(0);
   const plainFillAttemptsRef = useRef(0);
   const plainFillLengthRef = useRef(0);
+  const plainFillWaitRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
   // The first *rendered* row is the reader's anchor, and it is not the first processed event once
   // the window has slid. Kept as a plain value so the effects depend on an id, not an array.
   const firstRenderedId = plainRows[0]?.id;
@@ -1754,28 +1756,45 @@ export function RoomTimeline({
     // is a "not yet", not a "nothing to do": the effect is keyed on the flag and the status below,
     // so the fill runs the moment either flips rather than on a timer.
     if (!timelineSync.canPaginateBack || timelineSync.backwardStatus !== 'idle') {
-      timelineDebug.note(
-        'plain-fill-wait',
-        { total, canPaginateBack: timelineSync.canPaginateBack, status: timelineSync.backwardStatus },
-        null,
-        messageListRef.current,
-        debugCtx()
-      );
+      // Transition-only and capped: on iOS the sampler writes to a 400-record ring, and this state
+      // (cold launch, token missing) is exactly the one that lasts for seconds — logging it per
+      // render would evict the frame/stall records `report()` is built from.
+      const waitKey = `${total}:${timelineSync.canPaginateBack}:${timelineSync.backwardStatus}`;
+      const wait = plainFillWaitRef.current;
+      if (wait.key !== waitKey && wait.count < 5) {
+        plainFillWaitRef.current = { key: waitKey, count: wait.count + 1 };
+        timelineDebug.note(
+          'plain-fill-wait',
+          {
+            total,
+            canPaginateBack: timelineSync.canPaginateBack,
+            status: timelineSync.backwardStatus,
+          },
+          null,
+          messageListRef.current,
+          debugCtx()
+        );
+      }
       return;
     }
     if (plainFillAttemptsRef.current > 0 && total <= plainFillLengthRef.current) return;
 
     plainFillAttemptsRef.current += 1;
     plainFillLengthRef.current = total;
-    timelineDebug.note('plain-fill', { total, attempt: plainFillAttemptsRef.current }, null, messageListRef.current, debugCtx());
-    void timelineSync.handleTimelinePagination(true);
+    timelineDebug.note(
+      'plain-fill',
+      { total, attempt: plainFillAttemptsRef.current },
+      null,
+      messageListRef.current,
+      debugCtx()
+    );
+    void timelineSyncRef.current.handleTimelinePagination(true);
     setPlainWindow({ start: 0, end: Math.min(total - 1, PLAIN_MAX_ROWS - 1) });
   }, [
     plainTimeline,
     processedEvents.length,
     timelineSync.canPaginateBack,
     timelineSync.backwardStatus,
-    timelineSync,
     debugCtx,
   ]);
 
