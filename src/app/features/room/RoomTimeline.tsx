@@ -1814,20 +1814,30 @@ export function RoomTimeline({
               data-testid="timeline-plain"
               className={css.messageList}
               style={{
-                flex: 1,
-                minHeight: 0,
+                // `flex: 1` is inert here: the wrapper is a block box, so it collapsed the
+                // scroller to its content height, never overflowed, and the wrapper's
+                // `overflow: hidden` clipped everything past it (2026-11-11 screenshots). The
+                // scroller has to own the wrapper's height outright.
+                height: '100%',
                 width: '100%',
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                paddingTop: config.space.S600,
-                paddingBottom: config.space.S600,
                 // The browser's own scroll anchoring fights the explicit window arithmetic on a
                 // plain list: rows above the viewport are added and dropped by the reducer.
                 overflowAnchor: 'none',
               }}
               onScroll={handlePlainScroll}
             >
+              {/* Bottom-aligns a short room without putting `justify-content` on the scroller,
+                  which WebKit clips. */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-end',
+                  minHeight: '100%',
+                  paddingTop: config.space.S600,
+                  paddingBottom: config.space.S600,
+                }}
+              >
               {plainRows.map((eventData, index) => (
                 <MemoizedTimelineItem
                   key={`${eventData.id}:${eventData.isRedacted ? 'redacted' : 'message'}`}
@@ -1848,6 +1858,7 @@ export function RoomTimeline({
                   openThreadId={openThreadId}
                 />
               ))}
+              </div>
             </div>
           ) : (
             <VList<ProcessedEvent>
