@@ -170,6 +170,12 @@
 
 ## Decisions
 
+- **Timeline layout is measured, not inferred.** `tests/e2e/plain-timeline-chain.spec.ts` (Playwright
+  project `webkit-ios`, iPhone descriptor, `?plainlist=1`) loads the real app, opens a room and prints
+  `PLAIN_CHAIN` with the scroller, content, wrapper, wrapper parent, viewport and inner column heights.
+  It asserts that the plain path is rendering at all before anything else — five candidates were shipped
+  against a symptom that had never been measured. Needs Docker for the homeserver fixture and
+  `npx playwright install webkit`.
 - **The SPA fallback is scoped to non-asset paths.** `/assets/*` has its own handler, so a rotated chunk name
   answers 404 instead of index.html; the cache rule inside that handler keeps `immutable` for real assets only.
   Verified with a throwaway Caddy container against a fixture root: existing asset `200 text/javascript`

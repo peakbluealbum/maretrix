@@ -53,6 +53,15 @@ export default defineConfig({
       testMatch: ['**/touch.spec.ts', '**/permalink-jump.spec.ts'],
       use: { ...devices['Pixel 7'] },
     },
+    // Real WebKit on an iPhone descriptor. The 1.1.1 timeline bug is WebKit-only and had been
+    // measured exclusively on a physical phone; this project exists so the height chain can be read
+    // without one. Requires `npx playwright install webkit`.
+    {
+      name: 'webkit-ios',
+      dependencies: ['setup'],
+      testMatch: ['**/plain-timeline-chain.spec.ts'],
+      use: { ...devices['iPhone 14 Pro Max'] },
+    },
   ],
   webServer: {
     // Test the production build.
