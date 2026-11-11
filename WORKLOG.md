@@ -165,6 +165,14 @@
 
 ## Decisions
 
+- **The SPA fallback is scoped to non-asset paths.** `/assets/*` has its own handler, so a rotated chunk name
+  answers 404 instead of index.html; the cache rule inside that handler keeps `immutable` for real assets only.
+  Verified with a throwaway Caddy container against a fixture root: existing asset `200 text/javascript`
+  + `immutable`, missing asset `404`, deep route `200 text/html`.
+- **The update banner reloads on `controllerchange`, not immediately.** Posting
+  `SKIP_WAITING_AND_CLAIM` and reloading on the next line races the new worker: the reload can win and the
+  old precache serves the build the user was told to leave. A 3 s timeout still unblocks a worker that never
+  claims.
 - **1.1.1 closes only on a verified iOS pass; it neither ships nor closes without one.** The line
   has no ship date and no rollback-to-1.1.0 trigger; the live PWA may sit on a test build with
   `?plainlist=0` as the daily bridge. The process gates do not relax for it: @review clears each
