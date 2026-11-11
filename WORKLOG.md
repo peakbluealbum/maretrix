@@ -52,8 +52,8 @@
    | 6 | live message while scrolled up | | 05:16:21Z | | | |
    | 7 | PWA vs native app | | 05:16:21Z | | | |
 
-   Done when every row is filled and the item carries a verdict: **fixed** → peel the workarounds
-   (Open #3); **not fixed** → fallback #4. Nothing else opens until then.
+   Done when every row is filled and a device pass says the iOS timeline is fixed. There is no
+   "not fixed, defer" branch: the line stays open until that pass exists (see Decisions).
 
    **2026-11-11 (first run): measured, not fixed.** Blank on every room change (1.1.0 at least kept
    the latest
@@ -143,6 +143,11 @@
 
 ## Decisions
 
+- **1.1.1 closes only on a verified iOS pass; it neither ships nor closes without one.** The line
+  has no ship date and no rollback-to-1.1.0 trigger; the live PWA may sit on a test build with
+  `?plainlist=0` as the daily bridge. The process gates do not relax for it: @review clears each
+  build, the installed app's About string is the first fact of every session, and no device
+  session runs on an unverified bundle. 1.2.0 stays blocked behind 1.1.1.
 - The 8-commit branch is **evidence, not a release**. Keep the history until the fix is known; do not
   squash it into a tidy story that hides which approaches were tried.
 - Upgrade the library before layering more app-side compensation.
