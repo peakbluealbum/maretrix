@@ -71,6 +71,12 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-11 — anchor compensation (`e1d486c` + `fd48292` nit) on staging** (`12:24:25Z`, chunk
+   `page-Ca1xS7f5.js`). The gate that stops premature backfill and the anchor that keeps the reader's row
+   fixed are both in: the scroll correction measures the first rendered row's content-space offset before
+   and after the commit, so a cap-sized window that adds rows above and drops rows below no longer drifts.
+   29 window tests, typecheck and lint green.
+
    **2026-11-11 — landmark on `29d8c07`:** encrypted rooms load without crashing, the timeline paints on
    every channel switch, hard flings are no longer jittery. Unencrypted and encrypted both pass; the one
    remaining defect was the history jump on scroll-up, caused by using a row's absolute index as a prepend
