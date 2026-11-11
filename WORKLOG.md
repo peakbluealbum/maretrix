@@ -71,6 +71,13 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **Read this before trusting any "no change" report on this line:** the installed PWA serves its own
+   precache, so a device session can test a bundle that predates the fix. Two of the reports below may
+   be exactly that, and the log should not be read as two failed fixes until the *installed* app's
+   About string is recorded. First fact of every session: About from the home-screen app
+   (`(7335a42)` or no hash = the fix was never on the device). The private tab answers a different
+   question — whether the layout resolves on the edge bundle — because its cache is always fresh.
+
    **2026-11-11 (third run): the plain scroller was collapsed** — `flex: 1` inside a block wrapper is
    inert, so the scroller took its content height, never overflowed, and the wrapper's
    `overflow: hidden` clipped the rest: newest row at the top of an empty box, no scrolling possible.
