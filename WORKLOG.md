@@ -71,6 +71,10 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-11 — `29d8c07` on staging** (started `11:28:20Z`, edge chunk `page-CRJVdBa0.js`), the
+   first candidate with the update-storm guard. The decisive test is an encrypted room: `plain-fill`
+   should read 2 with no repeats and `RoomState.events` should stay flat.
+
    **2026-11-11 — encryption is the discriminator (device, `6a218dc`).** Unencrypted rooms on the
    plain path **fill and scroll normally, no crash**. Encrypted rooms soft-crash on opening the
    timeline (`#185`, 51 `RoomState.events` listeners) once a page starts filling. So the renderer,
