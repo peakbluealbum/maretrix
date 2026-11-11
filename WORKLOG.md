@@ -19,6 +19,17 @@
 - **The line is on origin.** `release/1.1.1` pushed (`15964b0` plus this docs commit); `origin/main`
   = `0fe0e5c` (fast-forward from `3416a70`, no force); `fix/pronoun-residue-main` deleted locally and
   on origin. `git ls-remote` after the push shows no other head or tag moved.
+- **The 15 waived failures triaged** (`mrx/main/test-triage`): 14 stale tests, 1 product bug.
+  - *Branding/domain* — `pushCallNotificationCopy` (body copy says "Sable"), `TelemetryConsentBanner`
+    (aria-label "Help improve Maretrix"), `Desktop` ×2 and `KeyboardShortcuts` (visible copy says
+    Maretrix), `platform` ×2 (`getAppOrigin` deliberately returns `https://app.daiwascarlet.com`),
+    `Themes` ×3 (theme id `dracula` is labelled **Scarlet** in `$plugins/arborium/themes.ts`).
+  - *Paths/hashes* — `edgeToEdgeInsets` (hardcodes `moe/sable/client/MainActivity.kt`; the generated
+    project is `com/daiwascarlet/maretrix/MainActivity.kt`), `useTimelineEventRenderer` ×2 (snapshot
+    differs only in vanilla-extract class hashes; DOM and text identical).
+  - *Timezone* — `useProcessedTimeline` (fixed UTC instants straddle a local-day boundary only east of
+    UTC; `inSameDay` uses local `getDate()`, so it fails at UTC−7 and passes at UTC — flaky test).
+  - *Product bug* — `TauriDeepLinkBridge`: see Open #7.
 
 ## Open
 
@@ -45,9 +56,13 @@
    scrolled up, PWA vs native app.
 6. **Release hygiene, only after a verified fix:** all six version-bearing files → 1.1.1 (enumerated
    in `VERSIONS.md`), CHANGELOG 1.1.1 section, tag.
-7. **Triage the 15 waived test failures** (`mrx/main/test-triage`). Each gets a verdict — stale test
-   or product bug. A product bug gets a one-line user-visible statement and a target line. No 1.1.1
-   code changes.
+7. **Native SSO login dead-ends — product bug, found by triage.** `SSOTauri.ts` still builds
+   `sable://login/…` and rejects `maretrix://` callbacks, but the app registers only `maretrix` and
+   `com.daiwascarlet.maretrix` (`tauri.conf.json` deep-link, AndroidManifest intent-filter). The
+   browser redirect therefore cannot reach the app, and a callback that did arrive would be dropped
+   as a protocol mismatch. `SSOTauri.test.ts` asserts the broken scheme, which is why the suite never
+   caught it. User-visible: **"Sign in with SSO from a native app dead-ends."** Target: 1.1.1 as
+   platform breakage (one constant + the test assertions), otherwise 1.2.0 — owner's call.
 
 ## Blocked
 
