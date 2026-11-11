@@ -1722,7 +1722,7 @@ export function RoomTimeline({
     const contentTop = (row: HTMLElement) =>
       el.scrollTop + row.getBoundingClientRect().top - el.getBoundingClientRect().top;
 
-    if (anchor && previous.firstTop !== 0) {
+    if (anchor) {
       const top = contentTop(anchor);
       el.scrollTop = compensateForAnchor(el.scrollTop, previous.firstTop, top);
     } else if (previous.firstId !== undefined && previous.height > 0) {
