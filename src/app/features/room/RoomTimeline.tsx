@@ -462,6 +462,11 @@ export function RoomTimeline({
   // WebKit renders a bounded plain list instead of virtua (fallback #4, 1.1.1).
   const plainTimeline = usePlainTimeline();
   const [plainWindow, setPlainWindow] = useState<PlainWindow>(EMPTY_WINDOW);
+  // Hold mode: the window stops following the live tail once the reader has scrolled away from the
+  // bottom or paginated backwards. Without it every backward page is undone by the next reconcile,
+  // which re-slices the newest 150 rows and throws the reader forward a page at a time.
+  const [plainHold, setPlainHold] = useState(false);
+  const plainShiftRef = useRef<{ start: number; height: number }>({ start: -1, height: 0 });
   const { isScrolling: isTimelineScrolling, notifyScroll } = useScrollActivity();
   const [atBottomState, setAtBottomState] = useState(true);
   const atBottomRef = useRef(atBottomState);
@@ -512,6 +517,8 @@ export function RoomTimeline({
 
   useEffect(() => {
     timelineDebug.mountTimeline(room.roomId);
+    // A new room starts at the live edge; hold mode belongs to the previous room's scroll session.
+    setPlainHold(false);
   }, [room.roomId]);
 
   useEffect(() => {
@@ -1622,9 +1629,24 @@ export function RoomTimeline({
           ? reconcileWindow(prev, total, true, anchorIndex)
           : anchorWindow(total, anchorIndex);
       }
-      return reconcileWindow(prev, total, false);
+      return reconcileWindow(prev, total, plainHold);
     });
-  }, [plainTimeline, processedEvents]);
+  }, [plainTimeline, processedEvents, plainHold]);
+
+  // Prepended rows change the content above the viewport, so the reader would be thrown down by the
+  // height of the page. Compensate with the scrollHeight delta — measured, not estimated.
+  useLayoutEffect(() => {
+    if (!plainTimeline) return;
+    const el = messageListRef.current?.firstElementChild as HTMLElement | null;
+    if (!el) return;
+    const previous = plainShiftRef.current;
+    const height = el.scrollHeight;
+    if (previous.start >= 0 && plainWindow.start < previous.start) {
+      const delta = height - previous.height;
+      if (delta !== 0) el.scrollTop += delta;
+    }
+    plainShiftRef.current = { start: plainWindow.start, height };
+  }, [plainTimeline, plainWindow, plainRows.length]);
 
   useLayoutEffect(() => {
     if (!plainTimeline) return undefined;
@@ -1648,6 +1670,8 @@ export function RoomTimeline({
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
       const isNowAtBottom = distanceFromBottom < 100;
       if (isNowAtBottom !== atBottomRef.current) setAtBottom(isNowAtBottom);
+      // Away from the bottom the window must stop chasing the tail.
+      setPlainHold(!isNowAtBottom);
 
       const now = Date.now();
       if (now - plainScrollAtRef.current < 300) return;

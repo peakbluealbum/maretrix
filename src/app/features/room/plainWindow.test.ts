@@ -100,6 +100,22 @@ describe('growWindow', () => {
 });
 
 describe('reconcileWindow', () => {
+  it('does not undo a backward page while the reader is holding', () => {
+    // The bug: reconcile with `anchored: false` re-slices the newest 150 rows, so every backward
+    // page was thrown away and the reader was pushed forward by a page per pagination.
+    const total = 6000;
+    const paged = growWindow(liveWindow(total), total, 'back');
+    const afterLiveArrival = reconcileWindow(paged, total + 5, true);
+    expect(afterLiveArrival.start).toBe(paged.start);
+    expect(containsIndex(afterLiveArrival, paged.start)).toBe(true);
+  });
+
+  it('goes back to the tail once the reader returns to the bottom', () => {
+    const total = 6000;
+    const paged = growWindow(liveWindow(total), total, 'back');
+    expect(reconcileWindow(paged, total, false)).toEqual(liveWindow(total));
+  });
+
   it('follows the tail while live', () => {
     const w = liveWindow(1000);
     expect(reconcileWindow(w, 1005, false)).toEqual(liveWindow(1005));
