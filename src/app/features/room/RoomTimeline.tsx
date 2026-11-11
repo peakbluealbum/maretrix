@@ -1620,6 +1620,14 @@ export function RoomTimeline({
   );
 
   const plainScrollAtRef = useRef(0);
+  // The first *rendered* row is the reader's anchor, and it is not the first processed event once
+  // the window has slid. Kept as a plain value so the effects depend on an id, not an array.
+  const firstRenderedId = plainRows[0]?.id;
+
+  /** Only commit a window that actually changed — every helper returns a fresh object. */
+  const commitPlainWindow = useCallback((next: PlainWindow, prev: PlainWindow) => {
+    return next.start === prev.start && next.end === prev.end ? prev : next;
+  }, []);
 
   useLayoutEffect(() => {
     if (!plainTimeline) return;
@@ -1632,27 +1640,29 @@ export function RoomTimeline({
     const anchorIndex =
       anchorId === undefined ? -1 : processedEvents.findIndex((event) => event.id === anchorId);
 
-    // Rows prepended at the front shift every existing row up. Detect it by the first id, not by
-    // `start`: while holding, `start` deliberately does not move, so a start-based test never fires.
-    const firstId = processedEvents[0]?.id;
+    // Rows prepended at the front shift every existing row up. Detected by the first rendered id,
+    // not by `start`: while holding, `start` deliberately does not move, so a start-based test
+    // never fires on the case that matters.
     const previousFirstId = plainShiftRef.current.firstId;
     const prependCount =
-      previousFirstId !== undefined && previousFirstId !== firstId
+      previousFirstId !== undefined && previousFirstId !== firstRenderedId
         ? processedEvents.findIndex((event) => event.id === previousFirstId)
         : -1;
 
     setPlainWindow((prev) => {
+      let next: PlainWindow;
       if (prependCount > 0 && (plainHold || anchorIndex >= 0)) {
-        return extendForPrepend(prev, total, prependCount);
-      }
-      if (anchorIndex >= 0) {
-        return containsIndex(prev, anchorIndex)
+        next = extendForPrepend(prev, total, prependCount);
+      } else if (anchorIndex >= 0) {
+        next = containsIndex(prev, anchorIndex)
           ? reconcileWindow(prev, total, true, anchorIndex)
           : anchorWindow(total, anchorIndex);
+      } else {
+        next = reconcileWindow(prev, total, plainHold);
       }
-      return reconcileWindow(prev, total, plainHold);
+      return commitPlainWindow(next, prev);
     });
-  }, [plainTimeline, processedEvents, plainHold]);
+  }, [plainTimeline, processedEvents, firstRenderedId, plainHold, commitPlainWindow]);
 
   /**
    * Keep the viewport on the same rows when content height changes above it.
@@ -1667,18 +1677,17 @@ export function RoomTimeline({
 
     const previous = plainShiftRef.current;
     const height = el.scrollHeight;
-    const firstId = processedEvents[0]?.id;
     const prepended =
       previous.firstId !== undefined &&
-      previous.firstId !== firstId &&
+      previous.firstId !== firstRenderedId &&
       processedEvents.some((event) => event.id === previous.firstId);
 
     if (prepended && previous.height > 0) {
       el.scrollTop = compensateForPrepend(el.scrollTop, previous.height, height);
     }
 
-    plainShiftRef.current = { firstId, height };
-  }, [plainTimeline, processedEvents, plainRows.length]);
+    plainShiftRef.current = { firstId: firstRenderedId, height };
+  }, [plainTimeline, processedEvents, firstRenderedId, plainRows.length]);
 
   useLayoutEffect(() => {
     if (!plainTimeline) return undefined;
@@ -1702,8 +1711,10 @@ export function RoomTimeline({
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
       const isNowAtBottom = distanceFromBottom < 100;
       if (isNowAtBottom !== atBottomRef.current) setAtBottom(isNowAtBottom);
-      // Away from the bottom the window must stop chasing the tail.
-      setPlainHold(!isNowAtBottom);
+      // Hold is a property of a scrollable list: a short room never enters it, and away from the
+      // bottom the window stops chasing the tail. Both sides come from measured geometry.
+      const scrollable = el.scrollHeight > el.clientHeight + 1;
+      setPlainHold(scrollable && !isNowAtBottom);
 
       const now = Date.now();
       if (now - plainScrollAtRef.current < 300) return;
@@ -1870,12 +1881,11 @@ export function RoomTimeline({
               data-testid="timeline-plain"
               className={css.messageList}
               style={{
-                // `flex: 1` is inert here: the wrapper is a block box, so it collapsed the
-                // scroller to its content height, never overflowed, and the wrapper's
-                // `overflow: hidden` clipped everything past it (2026-11-11 screenshots). The
-                // scroller has to own the wrapper's height outright.
-                height: '100%',
-                width: '100%',
+                // `flex: 1` was inert in a block wrapper, and a percentage height depends on that
+                // same chain resolving on WebKit. Absolute inset does not depend on either: the
+                // wrapper is already `position: relative`, so the scroller takes its box outright.
+                position: 'absolute',
+                inset: 0,
                 // The browser's own scroll anchoring fights the explicit window arithmetic on a
                 // plain list: rows above the viewport are added and dropped by the reducer.
                 overflowAnchor: 'none',
