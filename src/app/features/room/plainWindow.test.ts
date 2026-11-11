@@ -118,7 +118,9 @@ describe('prepend while holding', () => {
     const held = { start: 2600, end: 2749 };
     const grown = extendForPrepend(held, 2850, 100);
     expect(grown.end).toBe(2849);
-    expect(containsIndex(grown, 2600)).toBe(true);
+    // The reader's row was at 2600; 100 rows inserted in front of it put it at 2700. Asserting 2600
+    // would pass even if the reader's row had fallen out of the window.
+    expect(containsIndex(grown, 2700)).toBe(true);
     expect(windowLength(grown)).toBeLessThanOrEqual(PLAIN_MAX_ROWS);
   });
 
