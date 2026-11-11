@@ -71,6 +71,14 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-11 — encryption is the discriminator (device, `6a218dc`).** Unencrypted rooms on the
+   plain path **fill and scroll normally, no crash**. Encrypted rooms soft-crash on opening the
+   timeline (`#185`, 51 `RoomState.events` listeners) once a page starts filling. So the renderer,
+   the fill and the window maths now have a device pass on unencrypted rooms — the first real
+   evidence that path works — and the remaining defect is the interaction with asynchronous
+   decryption. `29d8c07` guards the per-render `setPlainWindow` that produced the update storm; it
+   is the next candidate for an encrypted room, not a speculative rewrite.
+
    **Read this before trusting any "no change" report on this line:** the installed PWA serves its own
    precache, so a device session can test a bundle that predates the fix. Two of the reports below may
    be exactly that, and the log should not be read as two failed fixes until the *installed* app's
