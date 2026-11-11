@@ -56,8 +56,11 @@
    (Open #3); **not fixed** → fallback #4. Nothing else opens until then.
 
    **2026-11-11: measured, not fixed.** Blank on every room change (1.1.0 at least kept the latest
-   message), occasional bottom gap, and the RO loop now fires on every scroll — up to 18 repeats —
-   rather than only at mount. Fallback #4 opens; evidence and rows live in
+   message), occasional bottom gap, and the RO loop now fires on every scroll — up to 23 repeats —
+   rather than only at mount. The sampler names the mechanism: every mount records
+   `scrollSize = viewportSize = 635` while the live DOM is 33,370 px tall, so virtua's index maths is
+   off by ~50× — that is the "scrolled up days-to-weeks" the tester hit, and mount 1 rendered **zero**
+   rows for the whole trace window. Fallback #4 opens; evidence and rows live in
    [`docs/1.1.1-ios-device-pass/2026-11-11/`](docs/1.1.1-ios-device-pass/2026-11-11/notes.md).
 2. **Root cause, named but unfixed.** On iOS WebKit the room mounts at **0 px** height; virtua turns
    that into its viewport, the box then expands, and WebKit drops the resize notification
@@ -86,6 +89,14 @@
    as a protocol mismatch. `SSOTauri.test.ts` asserts the broken scheme, which is why the suite never
    caught it. User-visible: **"Sign in with SSO from a native app dead-ends."** Target: 1.1.1 as
    platform breakage (one constant + the test assertions), otherwise 1.2.0 — owner's call.
+8. **Pagination may be attaching events to the wrong timeline — new, from the 2026-11-11 capture.**
+   15 events were rejected in one short console capture
+   (`EventTimelineSet.addEventToTimeline: Ignoring event=… that does not belong in timeline=<roomId>:<timestamp>`),
+   13 of them for one room, while 16 `/messages` requests were issued. The timeline id carries a
+   creation timestamp, so the fetch lands in a timeline instance that is not the one rendering. Not
+   explained by virtua and not ruled out as a cause of the weeks-long jumps: if the rendered window
+   never receives what was paginated, no renderer can anchor on it. Read the pagination path before
+   the plain-list reducer derives its window from event indices.
 
 ## Blocked
 
