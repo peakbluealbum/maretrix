@@ -79,6 +79,13 @@
    bottom-aligned by an inner `min-height: 100%` column, never `justify-content` on the scroller.
    Verified in Chromium with the same nesting (680 px scroller in a 680 px wrapper: 2 rows bottom-aligned
    with no overflow, 60 rows `scrollTop` 1720 = max and the last row flush with the scroller bottom).
+
+   **2026-11-11 (fourth run): hold mode.** The layout was not the only thing wrong — every backward
+   page was undone on the next render, because `reconcileWindow(prev, total, false)` re-sliced the
+   newest 150 rows whenever no jump anchor was set, and normal scrolling never sets one. The window
+   now holds once the reader leaves the bottom (`plainHold`), prepended rows are compensated with a
+   `scrollHeight` delta, and hold is released when the reader returns to the bottom. `517d2cb`,
+   container started `2026-11-11T09:12:02Z`, image `sha256:25d1d612c9be…`, edge `page-B0ZJ2r9N.js`.
 2. **Root cause, named but unfixed.** On iOS WebKit the room mounts at **0 px** height; virtua turns
    that into its viewport, the box then expands, and WebKit drops the resize notification
    (`ResizeObserver loop completed with undelivered notifications`), leaving a one-row range —
