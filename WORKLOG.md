@@ -55,13 +55,21 @@
    Done when every row is filled and the item carries a verdict: **fixed** → peel the workarounds
    (Open #3); **not fixed** → fallback #4. Nothing else opens until then.
 
-   **2026-11-11: measured, not fixed.** Blank on every room change (1.1.0 at least kept the latest
+   **2026-11-11 (first run): measured, not fixed.** Blank on every room change (1.1.0 at least kept
+   the latest
    message), occasional bottom gap, and the RO loop now fires on every scroll — up to 23 repeats —
    rather than only at mount. The sampler names the mechanism: every mount records
    `scrollSize = viewportSize = 635` while the live DOM is 33,370 px tall, so virtua's index maths is
    off by ~50× — that is the "scrolled up days-to-weeks" the tester hit, and mount 1 rendered **zero**
-   rows for the whole trace window. Fallback #4 opens; evidence and rows live in
+   rows for the whole trace window. Fallback #4 opened; evidence and rows live in
    [`docs/1.1.1-ios-device-pass/2026-11-11/`](docs/1.1.1-ios-device-pass/2026-11-11/notes.md).
+
+   **2026-11-11 (second run): fallback #4 built and deployed** (`7335a42`, container started
+   `2026-11-11T08:44:00Z`, image `sha256:c63d0411af5d…`, edge chunk `page-Bwfzz9oM.js`). On iOS the
+   timeline now renders a bounded plain list — 150 rows live, 400 cap, sliding growth both ways so a
+   jump older than the bound can still scroll down to the newest message; initial scroll from
+   `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
+   back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 2. **Root cause, named but unfixed.** On iOS WebKit the room mounts at **0 px** height; virtua turns
    that into its viewport, the box then expands, and WebKit drops the resize notification
    (`ResizeObserver loop completed with undelivered notifications`), leaving a one-row range —
