@@ -33,9 +33,27 @@
 
 ## Open
 
-1. **Device pass on 0.54.2 — the gate for 1.1.1.** Build `1a5ba1b` (or later) and measure on iOS
-   WebKit. Done when this item carries the measured rendered range from 0.54.2 across the item-5
-   scenarios plus a verdict: **fixed**, or **go to fallback #4**. Nothing else opens until then.
+1. **Device pass on 0.54.2 — the gate for 1.1.1.** Deployed `446ab78`: container `maretrix` started
+   `2026-11-11T05:16:21Z`, image `sha256:8dc0afbd6d0f…`, edge serves `assets/page-CxHAT_fx.js`, and
+   that chunk's sourcemap resolves `node_modules/.pnpm/virtua@0.54.2_…/virtua/lib/index.js` with
+   `virtua@0.50.1` absent — the live artifact is provably 0.54.2, not frozen-lockfile faith. About
+   reads **`v1.1.1-dev`** (no hash: `.git` is excluded from the build context, and `-dev` follows from
+   `git describe` being unable to find a tag there); only **`v1.1.0` voids a run**. One line per
+   scenario — About version, deploy stamp, rendered range (`rend:[first,last]` and `now.rows` from
+   `__maretrixTL.report()`), RO-loop error yes/no. Clear the sampler between scenarios.
+
+   | # | Scenario | About | Deploy | rendered range | RO error | Verdict |
+   |---|---|---|---|---|---|---|
+   | 1 | cold open a room | | 05:16:21Z | | | |
+   | 2 | switch rooms repeatedly | | 05:16:21Z | | | |
+   | 3 | leave and return | | 05:16:21Z | | | |
+   | 4 | empty room that grows | | 05:16:21Z | | | |
+   | 5 | fling while scrolled up | | 05:16:21Z | | | |
+   | 6 | live message while scrolled up | | 05:16:21Z | | | |
+   | 7 | PWA vs native app | | 05:16:21Z | | | |
+
+   Done when every row is filled and the item carries a verdict: **fixed** → peel the workarounds
+   (Open #3); **not fixed** → fallback #4. Nothing else opens until then.
 2. **Root cause, named but unfixed.** On iOS WebKit the room mounts at **0 px** height; virtua turns
    that into its viewport, the box then expands, and WebKit drops the resize notification
    (`ResizeObserver loop completed with undelivered notifications`), leaving a one-row range —
@@ -106,6 +124,11 @@
   `packaging/arch/PKGBUILD` (`pkgver` + `_gh_tag`) and `packaging/arch/.SRCINFO`. `e1e5398` moved all
   six in one commit; a stale `_gh_tag` ships an Arch package pointing at the previous tarball.
   `VERSIONS.md` carries the enumeration.
+- **Deploy stamp names the build.** Scenario C passes
+  `--build-arg VITE_BUILD_HASH=$(git rev-parse --short HEAD)` so the deployed About line carries its
+  commit. Chunk names are only comparable between builds with identical args — the hash literal is
+  part of the content, so an edge-vs-image chunk match proves a shared *build*, not shared source.
+  The deployed sourcemap is the stronger check: it resolves the exact pnpm path of every dependency.
 - **Checks run on Node 24.18.0** (the CI pin in `.github/workflows/build.yml`). On Node 26 the suite
   reports 319 failures from `localStorage` being unavailable in the runtime, which is noise, not a
   regression.
