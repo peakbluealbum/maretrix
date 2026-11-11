@@ -89,14 +89,19 @@
    as a protocol mismatch. `SSOTauri.test.ts` asserts the broken scheme, which is why the suite never
    caught it. User-visible: **"Sign in with SSO from a native app dead-ends."** Target: 1.1.1 as
    platform breakage (one constant + the test assertions), otherwise 1.2.0 — owner's call.
-8. **Pagination may be attaching events to the wrong timeline — new, from the 2026-11-11 capture.**
-   15 events were rejected in one short console capture
-   (`EventTimelineSet.addEventToTimeline: Ignoring event=… that does not belong in timeline=<roomId>:<timestamp>`),
-   13 of them for one room, while 16 `/messages` requests were issued. The timeline id carries a
-   creation timestamp, so the fetch lands in a timeline instance that is not the one rendering. Not
-   explained by virtua and not ruled out as a cause of the weeks-long jumps: if the rendered window
-   never receives what was paginated, no renderer can anchor on it. Read the pagination path before
-   the plain-list reducer derives its window from event indices.
+8. **Pagination rejects are thread classification — re-measure after the plain path.** The 15
+   `addEventToTimeline: Ignoring event=…` lines in the 2026-11-11 capture are `canContain` rejections
+   (`event-timeline-set.js:536`): `eventShouldLiveIn` says a thread reply does not belong in the
+   room's main set, and every captured line ends `timelineSet(threadId=undefined)`. One per page
+   across 16 pages is ordinary backfill of a room with threads. The timeline-name timestamp is
+   construction time (`event-timeline.js:84`), not a correlation key, and `Room.addEventsToTimeline`
+   delegates to `timeline.getTimelineSet()`, so a foreign set is unreachable on that path.
+   The 16 forward `/messages` requests are downstream of the geometry collapse: with
+   `scrollSize == viewportSize`, `distanceFromBottom` is `-offset`, so the forward edge is true at
+   every scroll position. The same collapse makes `distanceFromBottom >= 100` unreachable, so the
+   initial-scroll cancel cannot fire either — one more candidate for blank-until-input. Re-measure
+   after the plain path: forward requests that persist once `scrollHeight` is real are a bug; if they
+   stop, this item closes and the reducer proceeds.
 
 ## Blocked
 

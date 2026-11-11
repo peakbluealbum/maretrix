@@ -54,18 +54,15 @@ Main-thread stalls: `[103, 85, 211, 686, 1092, 982, 1019, 127]` ms — three of 
 - **21** `ResizeObserver loop completed with undelivered notifications` entries, repeat counters up to
   `x23`.
 - **16** `GET …/rooms/<id>/messages` pagination requests across two rooms in one short capture.
-- **15** events rejected by the SDK — the second lead, and not something virtua explains:
-
-  ```
-  EventTimelineSet.addEventToTimeline: Ignoring event=$VvqeocMqchX_I0NCujt717LIdGkav0UNKrrWTmQH0Zw
-  that does not belong in timeline=!ZG7pqxPRJjbmGfyf08:daiwascarlet.com:2026-11-11T08:12:38.567Z
-  ```
-
-  The timeline id carries a **creation timestamp** (`08:12:38.567Z`, another at `08:13:00.285Z`), so
-  paginated events are landing in a timeline instance that is not the one being rendered. 13 of the
-  15 are for `!aycuKSqEffxkYTqGYg`. If the fetch attaches to the wrong timeline, the rendered
-  window never receives what was paginated — which is worth ruling out before the plain-list
-  reducer is anchored on event indices.
+- **15 events rejected by the SDK — read as thread classification, not a defect.** `canContain` rejects
+  a `m.thread` reply from the room's main set (`event-timeline-set.js:536`), and every captured line
+  ends `timelineSet(threadId=undefined)`: one thread reply per page across 16 pages, which is ordinary
+  backfill. The timeline-name timestamp is construction time, not a correlation key.
+- The 16 forward `/messages` requests are downstream of the geometry collapse rather than a separate
+  pagination bug: with `scrollSize == viewportSize`, `distanceFromBottom = ss - offset - vp` is
+  `-offset`, so the `< 500` forward edge is true at every scroll position. The same collapse makes the
+  `distanceFromBottom >= 100` cancel condition unreachable, so the initial-scroll latch cannot be
+  released by scrolling — one more candidate for blank-until-input. Re-measure after the plain path.
 
 ## Rows
 
