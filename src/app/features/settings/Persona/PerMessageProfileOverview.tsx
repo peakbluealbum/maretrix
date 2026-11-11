@@ -9,7 +9,7 @@ import {
 import { isPersonaAccountDataEvent } from '$app/persona/catalog';
 import { useAccountDataCallback } from '$hooks/useAccountDataCallback';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Button, color, config, Dialog, Header, Spinner, Switch, Text } from 'folds';
+import { Box, Button, color, config, Dialog, Header, Spinner, Text } from 'folds';
 import { generateShortId } from '$utils/shortIdGen';
 import { SequenceCard, SequenceCardStyle } from '$components/sequence-card';
 import { PerMessageProfileListItem } from './PerMessageProfileListItem';
@@ -22,7 +22,6 @@ import {
 import { downloadJsonFile } from '$app/utils/download';
 import { selectFile } from '$app/utils/dom';
 import { ModalOverlay } from '$components/modal-overlay/ModalOverlay';
-import { AsyncError } from '$components/AsyncError';
 import { readFileToString } from '$app/utils/file';
 
 type PerMessageProfileOverviewProps = {

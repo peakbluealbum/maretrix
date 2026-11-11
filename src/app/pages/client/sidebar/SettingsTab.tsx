@@ -6,7 +6,7 @@ import { matchPath } from 'react-router';
 import { SETTINGS_PATH } from '$pages/paths';
 import { color } from 'folds';
 
-export function SettingsTab({ isBottom, isMobile }: { isBottom?: boolean; isMobile?: boolean }) {
+export function SettingsTab({ isBottom }: { isBottom?: boolean; isMobile?: boolean }) {
   const opened = !!matchPath(SETTINGS_PATH, location.pathname);
   const openSettings = useOpenSettings();
 

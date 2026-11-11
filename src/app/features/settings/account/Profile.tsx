@@ -42,11 +42,6 @@ import { AvatarUploadTile } from '$components/avatar-upload-tile/AvatarUploadTil
 import { accessibleColor } from '$plugins/color';
 import { ThemeKind } from '$hooks/useTheme';
 
-type PronounSet = {
-  summary: string;
-  language?: string;
-};
-
 type ProfileProps = {
   profile: UserProfile;
   userId: string;
@@ -408,7 +403,6 @@ function ProfileExtended({ profile, userId }: Readonly<ProfileProps>) {
   const mx = useMatrixClient();
   const setGlobalProfiles = useSetAtom(profilesCacheAtom);
 
-  const pronouns = (profile.pronouns as PronounSet[]) || [];
   const presence = useUserPresence(userId);
   const currentStatus = presence?.status || '';
 
