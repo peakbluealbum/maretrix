@@ -70,6 +70,15 @@
    jump older than the bound can still scroll down to the newest message; initial scroll from
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
+
+   **2026-11-11 (third run): the plain scroller was collapsed** — `flex: 1` inside a block wrapper is
+   inert, so the scroller took its content height, never overflowed, and the wrapper's
+   `overflow: hidden` clipped the rest: newest row at the top of an empty box, no scrolling possible.
+   Fixed in `dc77085` (container started `2026-11-11T09:00:45Z`, image `sha256:6a8738fab7d8…`, edge
+   `page-C8jcykVL.js`): the scroller owns `height: 100%` of the wrapper and a short room is
+   bottom-aligned by an inner `min-height: 100%` column, never `justify-content` on the scroller.
+   Verified in Chromium with the same nesting (680 px scroller in a 680 px wrapper: 2 rows bottom-aligned
+   with no overflow, 60 rows `scrollTop` 1720 = max and the last row flush with the scroller bottom).
 2. **Root cause, named but unfixed.** On iOS WebKit the room mounts at **0 px** height; virtua turns
    that into its viewport, the box then expands, and WebKit drops the resize notification
    (`ResizeObserver loop completed with undelivered notifications`), leaving a one-row range —
