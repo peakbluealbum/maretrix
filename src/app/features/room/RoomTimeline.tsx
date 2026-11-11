@@ -1750,14 +1750,34 @@ export function RoomTimeline({
     if (total === 0) return;
     if (el.scrollHeight > el.clientHeight + 1) return;
     if (plainFillAttemptsRef.current >= 5) return;
-    if (!timelineSync.canPaginateBack || backwardStatusRef.current !== 'idle') return;
+    // A fresh timeline has no backward pagination token until the live timeline is linked, so this
+    // is a "not yet", not a "nothing to do": the effect is keyed on the flag and the status below,
+    // so the fill runs the moment either flips rather than on a timer.
+    if (!timelineSync.canPaginateBack || timelineSync.backwardStatus !== 'idle') {
+      timelineDebug.note(
+        'plain-fill-wait',
+        { total, canPaginateBack: timelineSync.canPaginateBack, status: timelineSync.backwardStatus },
+        null,
+        messageListRef.current,
+        debugCtx()
+      );
+      return;
+    }
     if (plainFillAttemptsRef.current > 0 && total <= plainFillLengthRef.current) return;
 
     plainFillAttemptsRef.current += 1;
     plainFillLengthRef.current = total;
+    timelineDebug.note('plain-fill', { total, attempt: plainFillAttemptsRef.current }, null, messageListRef.current, debugCtx());
     void timelineSync.handleTimelinePagination(true);
     setPlainWindow({ start: 0, end: Math.min(total - 1, PLAIN_MAX_ROWS - 1) });
-  }, [plainTimeline, processedEvents.length, timelineSync]);
+  }, [
+    plainTimeline,
+    processedEvents.length,
+    timelineSync.canPaginateBack,
+    timelineSync.backwardStatus,
+    timelineSync,
+    debugCtx,
+  ]);
 
   const handlePlainScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
