@@ -50,6 +50,7 @@ import {
   EMPTY_WINDOW,
   extendForPrepend,
   growWindow,
+  PLAIN_MAX_ROWS,
   reconcileWindow,
   windowLength,
   type PlainWindow,
@@ -1034,6 +1035,7 @@ export function RoomTimeline({
     setPlainHold(false);
     setPlainWindow(EMPTY_WINDOW);
     plainShiftRef.current = { start: -1, height: 0 };
+    plainFillAttemptsRef.current = 0;
   }, [timelineSync.eventsLength]);
 
   const recalcTopSpacer = useCallback(() => {
@@ -1630,6 +1632,7 @@ export function RoomTimeline({
   );
 
   const plainScrollAtRef = useRef(0);
+  const plainFillAttemptsRef = useRef(0);
   // The first *rendered* row is the reader's anchor, and it is not the first processed event once
   // the window has slid. Kept as a plain value so the effects depend on an id, not an array.
   const firstRenderedId = plainRows[0]?.id;
@@ -1717,6 +1720,32 @@ export function RoomTimeline({
     if (atBottomRef.current) el.scrollTop = el.scrollHeight;
     return undefined;
   }, [plainTimeline, processedEvents.length, plainRows.length]);
+
+  /**
+   * Mount-time fill.
+   *
+   * Backfill runs only inside the scroll handler, and a window that does not overflow never
+   * produces a scroll event — so a room that sync opens with a handful of events stays at those
+   * rows forever, however tall the scroller is. virtua's initial scroll-to-bottom emits a scroll
+   * event even when the list is short; assigning `scrollTop` on a non-overflowing plain scroller
+   * changes nothing and emits nothing, so the plain path has to drive the first page itself.
+   *
+   * Bounded on purpose: at most a few pages per room, and only while the window is under its cap,
+   * so a broken layout (clientHeight 0) cannot paginate without end.
+   */
+  useLayoutEffect(() => {
+    if (!plainTimeline) return;
+    const el = messageListRef.current?.firstElementChild as HTMLElement | null;
+    if (!el || !hasInitialScrolledRef.current) return;
+    if (plainRows.length === 0 || plainRows.length >= PLAIN_MAX_ROWS) return;
+    if (el.scrollHeight > el.clientHeight + 1) return;
+    if (plainFillAttemptsRef.current >= 5) return;
+    if (!timelineSync.canPaginateBack || backwardStatusRef.current !== 'idle') return;
+
+    plainFillAttemptsRef.current += 1;
+    void timelineSync.handleTimelinePagination(true);
+    setPlainWindow((prev) => growWindow(prev, processedEventsRef.current.length, 'back'));
+  }, [plainTimeline, plainRows.length, timelineSync]);
 
   const handlePlainScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
