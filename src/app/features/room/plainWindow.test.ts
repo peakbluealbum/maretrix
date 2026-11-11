@@ -111,6 +111,17 @@ describe('prepend while holding', () => {
     expect(containsIndex(grown, 20)).toBe(true);
   });
 
+  it('extends by the prepend count, not by the row\'s absolute index', () => {
+    // The window sits thousands of rows into the timeline; a page of 100 is inserted before the
+    // reader. `findIndex(prevFirstId)` returns ~2700 there, and using that as a count pushed `end`
+    // to the live edge — the reader was thrown days of history per page.
+    const held = { start: 2600, end: 2749 };
+    const grown = extendForPrepend(held, 2850, 100);
+    expect(grown.end).toBe(2849);
+    expect(containsIndex(grown, 2600)).toBe(true);
+    expect(windowLength(grown)).toBeLessThanOrEqual(PLAIN_MAX_ROWS);
+  });
+
   it('slides the start when the extension would pass the cap', () => {
     const held = { start: 100, end: 340 };
     const grown = extendForPrepend(held, 1000, 100);

@@ -1662,9 +1662,16 @@ export function RoomTimeline({
     // never fires on the case that matters.
     const previousFirstId = plainShiftRef.current.firstId;
     const renderedStart = plainShiftRef.current.start;
-    const prependCount =
+    const previousFirstIndex =
       previousFirstId !== undefined && previousFirstId !== firstRenderedId
         ? processedEvents.findIndex((event) => event.id === previousFirstId)
+        : -1;
+    // `findIndex` is the row's *absolute* index in the timeline, not the number of rows inserted
+    // before it: past the start of the window those differ by `renderedStart` (thousands of rows).
+    // Using the absolute index overshot `end` towards the live edge and threw the reader days.
+    const prependCount =
+      previousFirstIndex >= 0 && previousFirstIndex > renderedStart
+        ? previousFirstIndex - renderedStart
         : -1;
 
     let next: PlainWindow;
