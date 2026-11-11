@@ -293,8 +293,8 @@ importers:
         specifier: ^2.0.10
         version: 2.0.10
       virtua:
-        specifier: ^0.50.1
-        version: 0.50.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: ^0.54.2
+        version: 0.54.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       workbox-precaching:
         specifier: ^7.4.1
         version: 7.4.1
@@ -5145,8 +5145,8 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
-  virtua@0.50.1:
-    resolution: {integrity: sha512-rNue/Cv/0Z14Yg9Pj6Xx9QaQPKhmlNWkx7Y7SytRnhojxvZ0z3GhCWr4QH2+tJm5mYL2vm4GudZPPt0i1PLzSA==}
+  virtua@0.54.2:
+    resolution: {integrity: sha512-lYCAxyXCGkhXVvuKv8a+LklZquy0E9dIObYcOUyo6nP4VSvLeiIsiz94mA3ZKYuM5egkke5RIi2nXi5OIATc7A==}
     peerDependencies:
       '@angular/common': '>=20.0.0'
       '@angular/core': '>=20.0.0'
@@ -10123,7 +10123,7 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  virtua@0.50.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  virtua@0.54.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     optionalDependencies:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
