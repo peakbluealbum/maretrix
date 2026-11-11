@@ -468,7 +468,10 @@ export function RoomTimeline({
   // bottom or paginated backwards. Without it every backward page is undone by the next reconcile,
   // which re-slices the newest 150 rows and throws the reader forward a page at a time.
   const [plainHold, setPlainHold] = useState(false);
-  const plainShiftRef = useRef<{ firstId?: string; height: number }>({ height: 0 });
+  const plainShiftRef = useRef<{ firstId?: string; start: number; height: number }>({
+    start: -1,
+    height: 0,
+  });
   const { isScrolling: isTimelineScrolling, notifyScroll } = useScrollActivity();
   const [atBottomState, setAtBottomState] = useState(true);
   const atBottomRef = useRef(atBottomState);
@@ -863,9 +866,16 @@ export function RoomTimeline({
           `[data-message-id="${anchorId}"]`
         );
         el?.scrollIntoView({ block: 'center' });
-        // The jump is done: hold the window where the reader landed, and release the anchor so
-        // edge pagination and live arrivals resume instead of re-centring on the target forever.
-        setPlainHold(true);
+        // The jump is done. Hold only if the list can actually scroll and the reader did not land
+        // at the bottom — a short room fires no scroll event, so an unconditional hold would stick
+        // and stop the window following the room as it grows.
+        const scroller = messageListRef.current?.firstElementChild as HTMLElement | null;
+        if (scroller) {
+          const scrollable = scroller.scrollHeight > scroller.clientHeight + 1;
+          const distanceFromBottom =
+            scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+          setPlainHold(scrollable && distanceFromBottom >= 100);
+        }
         scrollAnchorRef.current = undefined;
       });
       return;
@@ -1023,7 +1033,7 @@ export function RoomTimeline({
     // The next room inherits nothing: not the hold, not the window, not the last measured height.
     setPlainHold(false);
     setPlainWindow(EMPTY_WINDOW);
-    plainShiftRef.current = { height: 0 };
+    plainShiftRef.current = { start: -1, height: 0 };
   }, [timelineSync.eventsLength]);
 
   const recalcTopSpacer = useCallback(() => {
@@ -1644,6 +1654,7 @@ export function RoomTimeline({
     // not by `start`: while holding, `start` deliberately does not move, so a start-based test
     // never fires on the case that matters.
     const previousFirstId = plainShiftRef.current.firstId;
+    const renderedStart = plainShiftRef.current.start;
     const prependCount =
       previousFirstId !== undefined && previousFirstId !== firstRenderedId
         ? processedEvents.findIndex((event) => event.id === previousFirstId)
@@ -1651,7 +1662,10 @@ export function RoomTimeline({
 
     setPlainWindow((prev) => {
       let next: PlainWindow;
-      if (prependCount > 0 && (plainHold || anchorIndex >= 0)) {
+      // A window that already moved is a grow-back, not a page prepend: the extra rows are already
+      // in it, and only the scroll compensation is owed.
+      const windowMoved = prev.start !== renderedStart;
+      if (prependCount > 0 && !windowMoved && (plainHold || anchorIndex >= 0)) {
         next = extendForPrepend(prev, total, prependCount);
       } else if (anchorIndex >= 0) {
         next = containsIndex(prev, anchorIndex)
@@ -1686,8 +1700,8 @@ export function RoomTimeline({
       el.scrollTop = compensateForPrepend(el.scrollTop, previous.height, height);
     }
 
-    plainShiftRef.current = { firstId: firstRenderedId, height };
-  }, [plainTimeline, processedEvents, firstRenderedId, plainRows.length]);
+    plainShiftRef.current = { firstId: firstRenderedId, start: plainWindow.start, height };
+  }, [plainTimeline, processedEvents, firstRenderedId, plainRows.length, plainWindow.start]);
 
   useLayoutEffect(() => {
     if (!plainTimeline) return undefined;
