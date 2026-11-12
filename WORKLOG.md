@@ -71,6 +71,12 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-12 — `a405b3e` on staging** (`12:30:16Z`, chunk `page-BVdxx9q9.js`): late-layout pin — a
+   ResizeObserver on the inner column holds the top row's viewport position through post-commit growth
+   (images, embeds), guarded on user intent (touch/wheel/pointer, not scroll events, which fired for
+   programmatic writes) and on viewport-only resizes, applied inline. Carries the `report()` change, so a
+   capture is one command.
+
    **2026-11-12 — `83cc82b` on staging** (`11:55:38Z`, chunk `page-Z-J0rd8O.js`): instrumentation only —
    `plain-window` (window before/after, anchor viewport position before/after the correction, top row
    identity) and `plain-scroll` (throttled scroll path). One capture at the jump names the commit that
