@@ -256,6 +256,19 @@ export function enabled(): boolean {
 interface TimelineRecord {
   ev: string;
   label?: string;
+  // plain-window / plain-scroll fields (diagnostic builds; see RoomTimeline's compensation effect).
+  startBefore?: number;
+  endBefore?: number;
+  startAfter?: number;
+  endAfter?: number;
+  anchorTopBefore?: number;
+  anchorTopAfterCommit?: number;
+  anchorTopFinal?: number;
+  scrollTopBefore?: number;
+  scrollTopAfter?: number;
+  scrollHeight?: number;
+  firstIdBefore?: string;
+  firstIdAfter?: string;
   room?: string;
   vlistMounts?: number;
   wrapH?: number;
@@ -349,6 +362,9 @@ export function report(): string {
     n: records.length,
     byEvent,
     latchEnds,
+    // The window commits carry the fields that name a scroll jump; include the tail of them so a
+    // capture never needs a second command.
+    plainWindows: records.filter((record) => record.ev === 'plain-window').slice(-5),
     stalls: records.filter((record) => record.ev === 'stall').slice(-8).map((record) => record.gap),
     longtasks: records.filter((record) => record.ev === 'longtask').slice(-8).map((record) => record.dur),
     mounts,
