@@ -7,6 +7,7 @@ import {
   containsIndex,
   EMPTY_WINDOW,
   growWindow,
+  lateLayoutDelta,
   liveWindow,
   nextPlainWindow,
   PLAIN_GROW_STEP,
@@ -287,5 +288,34 @@ describe('nextPlainWindow', () => {
         hold: false,
       })
     ).toEqual(EMPTY_WINDOW);
+  });
+});
+
+describe('lateLayoutDelta', () => {
+  it('reports content growth above the row when the finger is still', () => {
+    // The trace at t=69165: scrollHeight +3592, scrollTop frozen, the row pushed down by 3592.
+    expect(
+      lateLayoutDelta({ scrollTop: 3063, topRowViewport: 94 }, { scrollTop: 3063, topRowTop: 3686 })
+    ).toBe(3592);
+  });
+
+  it('is zero when only the finger moved', () => {
+    // Scrolled 200 px down with no layout change: the row's viewport top falls by exactly that.
+    expect(
+      lateLayoutDelta({ scrollTop: 3063, topRowViewport: 94 }, { scrollTop: 3263, topRowTop: -106 })
+    ).toBe(0);
+  });
+
+  it('separates the two when both happen', () => {
+    // Growth of 3592 while the reader drags 200 px down.
+    expect(
+      lateLayoutDelta({ scrollTop: 3063, topRowViewport: 94 }, { scrollTop: 3263, topRowTop: 3486 })
+    ).toBe(3592);
+  });
+
+  it('is zero for no change at all', () => {
+    expect(
+      lateLayoutDelta({ scrollTop: 0, topRowViewport: 40 }, { scrollTop: 0, topRowTop: 40 })
+    ).toBe(0);
   });
 });

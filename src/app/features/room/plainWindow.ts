@@ -206,3 +206,18 @@ export function nextPlainWindow(t: WindowTransition): PlainWindow {
   }
   return reconcileWindow(current, total, hold);
 }
+
+/**
+ * How far late layout moved the reader, accounting for their own scrolling.
+ *
+ * `topRowViewport` is a viewport coordinate, so it also moves when the finger does. Subtracting the
+ * scroll delta since the snapshot leaves only the part caused by content changing size above the
+ * row — which is the correction owed, whether or not a gesture is in progress.
+ */
+export function lateLayoutDelta(
+  previous: { scrollTop: number; topRowViewport: number },
+  current: { scrollTop: number; topRowTop: number }
+): number {
+  const expectedTop = previous.topRowViewport - (current.scrollTop - previous.scrollTop);
+  return current.topRowTop - expectedTop;
+}

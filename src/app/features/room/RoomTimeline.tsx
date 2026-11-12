@@ -49,6 +49,7 @@ import {
   compensateForPrepend,
   EMPTY_WINDOW,
   growWindow,
+  lateLayoutDelta,
   nextPlainWindow,
   PLAIN_MAX_ROWS,
   shouldRequestBackfill,
@@ -369,6 +370,7 @@ const getRoomMediaItem = (
 
 type PlainTopSnapshot = {
   clientHeight: number;
+  scrollTop: number;
   topRowId?: string;
   topRowViewport?: number;
 };
@@ -402,6 +404,7 @@ const snapshotPlainTop = (el: HTMLElement): PlainTopSnapshot => {
 
   return {
     clientHeight: el.clientHeight,
+    scrollTop: el.scrollTop,
     topRowId: topRow?.dataset.messageId,
     topRowViewport: topRow ? topRow.getBoundingClientRect().top : undefined,
   };
@@ -1720,8 +1723,7 @@ export function RoomTimeline({
   const plainFillLengthRef = useRef(0);
   const plainFillWaitRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
   const plainPinFrameRef = useRef<number | undefined>(undefined);
-  const plainTopRef = useRef<PlainTopSnapshot>({ clientHeight: 0 });
-  const plainLastUserIntentAtRef = useRef(0);
+  const plainTopRef = useRef<PlainTopSnapshot>({ clientHeight: 0, scrollTop: 0 });
   /**
    * Re-pin to the bottom for a few frames.
    *
@@ -1899,12 +1901,6 @@ export function RoomTimeline({
       if (!el) return;
 
       const previous = plainTopRef.current;
-      // A gesture is in flight: the snapshot predates the finger by however far it has moved, and
-      // correcting against it would yank the list back.
-      if (performance.now() - plainLastUserIntentAtRef.current < 120) {
-        plainTopRef.current = snapshotPlainTop(el);
-        return;
-      }
       // The inner column carries `min-height: 100%`, so it also resizes when the *viewport* changes
       // (composer, keyboard, rotation). Correcting for those would scroll the timeline for a
       // viewport change; re-snapshot and leave scrollTop alone.
@@ -1925,29 +1921,17 @@ export function RoomTimeline({
         return;
       }
 
-      const delta = row.getBoundingClientRect().top - previous.topRowViewport;
+      const delta = lateLayoutDelta(
+        { scrollTop: previous.scrollTop, topRowViewport: previous.topRowViewport },
+        { scrollTop: el.scrollTop, topRowTop: row.getBoundingClientRect().top }
+      );
       if (Math.abs(delta) >= 1) el.scrollTop += delta;
       plainTopRef.current = snapshotPlainTop(el);
     });
 
-    // Intent, not scroll events: programmatic writes raise scroll events too, so stamping there
-    // would let the correction stand down for the very growth it exists to absorb (the page commit
-    // corrects, its own event stamps the guard, the image settles 118 ms later and is ignored).
-    const markIntent = () => {
-      plainLastUserIntentAtRef.current = performance.now();
-    };
-    scroller.addEventListener('touchstart', markIntent, { passive: true });
-    scroller.addEventListener('touchmove', markIntent, { passive: true });
-    scroller.addEventListener('wheel', markIntent, { passive: true });
-    scroller.addEventListener('pointerdown', markIntent);
-
     observer.observe(content);
     return () => {
       observer.disconnect();
-      scroller.removeEventListener('touchstart', markIntent);
-      scroller.removeEventListener('touchmove', markIntent);
-      scroller.removeEventListener('wheel', markIntent);
-      scroller.removeEventListener('pointerdown', markIntent);
     };
   }, [plainTimeline]);
 
