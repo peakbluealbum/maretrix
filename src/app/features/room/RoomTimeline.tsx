@@ -367,6 +367,29 @@ const getRoomMediaItem = (
   };
 };
 
+type PlainTopSnapshot = {
+  clientHeight: number;
+  topRowId?: string;
+  topRowViewport?: number;
+};
+
+/** The row at the top of the viewport, and where it sits on screen. One rect read per row it walks. */
+const snapshotPlainTop = (el: HTMLElement): PlainTopSnapshot => {
+  const scrollerTop = el.getBoundingClientRect().top;
+  let topRow: HTMLElement | undefined;
+  for (const row of el.querySelectorAll<HTMLElement>('[data-message-id]')) {
+    if (row.getBoundingClientRect().bottom > scrollerTop) {
+      topRow = row;
+      break;
+    }
+  }
+  return {
+    clientHeight: el.clientHeight,
+    topRowId: topRow?.dataset.messageId,
+    topRowViewport: topRow ? topRow.getBoundingClientRect().top : undefined,
+  };
+};
+
 export function RoomTimeline({
   room,
   eventId,
@@ -1680,6 +1703,7 @@ export function RoomTimeline({
   const plainFillLengthRef = useRef(0);
   const plainFillWaitRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
   const plainPinFrameRef = useRef<number | undefined>(undefined);
+  const plainTopRef = useRef<PlainTopSnapshot>({ clientHeight: 0 });
   /**
    * Re-pin to the bottom for a few frames.
    *
@@ -1791,6 +1815,8 @@ export function RoomTimeline({
       debugCtx()
     );
 
+    plainTopRef.current = snapshotPlainTop(el);
+
     plainShiftRef.current = {
       firstId: firstRow?.dataset.messageId,
       firstTop: firstRow ? contentTop(firstRow) : 0,
@@ -1832,6 +1858,63 @@ export function RoomTimeline({
     },
     []
   );
+
+  /**
+   * Late layout, the case a window commit cannot see.
+   *
+   * Rows above the viewport finish settling after the commit that added them — images, embeds,
+   * reflow — and `scrollHeight` grows while `scrollTop` stays. Nothing in the window path runs, so
+   * the reader drifts up by the height of whatever loaded. This holds the row at the top of the
+   * viewport in place across those resizes.
+   */
+  useEffect(() => {
+    if (!plainTimeline) return undefined;
+    const scroller = messageListRef.current?.firstElementChild as HTMLElement | null;
+    const content = scroller?.firstElementChild as HTMLElement | null;
+    if (!scroller || !content) return undefined;
+
+    let frame: number | undefined;
+    const observer = new ResizeObserver(() => {
+      // Coalesce: several callbacks in one frame must apply one delta, not three.
+      if (frame !== undefined) return;
+      frame = requestAnimationFrame(() => {
+        frame = undefined;
+        const el = messageListRef.current?.firstElementChild as HTMLElement | null;
+        if (!el) return;
+
+        const previous = plainTopRef.current;
+        // The inner column carries `min-height: 100%`, so it also resizes when the *viewport*
+        // changes (composer, keyboard, rotation). Correcting for those would scroll the timeline
+        // for a viewport change; re-snapshot and leave scrollTop alone.
+        if (el.clientHeight !== previous.clientHeight) {
+          plainTopRef.current = snapshotPlainTop(el);
+          return;
+        }
+        // The bottom latch owns this state and the two would fight.
+        if (atBottomRef.current) {
+          plainTopRef.current = snapshotPlainTop(el);
+          return;
+        }
+        const row = previous.topRowId
+          ? el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(previous.topRowId)}"]`)
+          : null;
+        if (!row || previous.topRowViewport === undefined) {
+          plainTopRef.current = snapshotPlainTop(el);
+          return;
+        }
+
+        const delta = row.getBoundingClientRect().top - previous.topRowViewport;
+        if (Math.abs(delta) >= 1) el.scrollTop += delta;
+        plainTopRef.current = snapshotPlainTop(el);
+      });
+    });
+
+    observer.observe(content);
+    return () => {
+      observer.disconnect();
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
+  }, [plainTimeline]);
 
   /**
    * Mount-time fill.
@@ -1913,6 +1996,9 @@ export function RoomTimeline({
     (event: UIEvent<HTMLDivElement>) => {
       const el = event.currentTarget;
       notifyScroll();
+      // Keep the resize correction's reference fresh: a scroll followed by an image load would
+      // otherwise measure against the position the reader had before the gesture.
+      plainTopRef.current = snapshotPlainTop(el);
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
       const isNowAtBottom = distanceFromBottom < 100;
       if (isNowAtBottom !== atBottomRef.current) setAtBottom(isNowAtBottom);
