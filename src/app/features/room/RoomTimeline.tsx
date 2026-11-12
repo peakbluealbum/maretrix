@@ -375,14 +375,25 @@ type PlainTopSnapshot = {
 
 /** The row at the top of the viewport, and where it sits on screen. One rect read per row it walks. */
 const snapshotPlainTop = (el: HTMLElement): PlainTopSnapshot => {
-  const scrollerTop = el.getBoundingClientRect().top;
-  let topRow: HTMLElement | undefined;
-  for (const row of el.querySelectorAll<HTMLElement>('[data-message-id]')) {
-    if (row.getBoundingClientRect().bottom > scrollerTop) {
-      topRow = row;
-      break;
+  const rect = el.getBoundingClientRect();
+  // One hit-test rather than a walk with a rect read per row: this runs on every scroll event, and
+  // a deep window is ~40 rows in. Probe just inside the left edge — the float chips sit over the top.
+  const hit = document
+    .elementsFromPoint(rect.left + 8, rect.top + 1)
+    .map((node) => (node instanceof Element ? node.closest<HTMLElement>('[data-message-id]') : null))
+    .find((row): row is HTMLElement => row !== null && el.contains(row));
+
+  let topRow = hit ?? undefined;
+  if (!topRow) {
+    // Nothing at the probe point (an empty gap or a full-bleed row): fall back to the scan.
+    for (const row of el.querySelectorAll<HTMLElement>('[data-message-id]')) {
+      if (row.getBoundingClientRect().bottom > rect.top) {
+        topRow = row;
+        break;
+      }
     }
   }
+
   return {
     clientHeight: el.clientHeight,
     topRowId: topRow?.dataset.messageId,
@@ -1704,6 +1715,7 @@ export function RoomTimeline({
   const plainFillWaitRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
   const plainPinFrameRef = useRef<number | undefined>(undefined);
   const plainTopRef = useRef<PlainTopSnapshot>({ clientHeight: 0 });
+  const plainLastScrollAtRef = useRef(0);
   /**
    * Re-pin to the bottom for a few frames.
    *
@@ -1873,46 +1885,48 @@ export function RoomTimeline({
     const content = scroller?.firstElementChild as HTMLElement | null;
     if (!scroller || !content) return undefined;
 
-    let frame: number | undefined;
     const observer = new ResizeObserver(() => {
-      // Coalesce: several callbacks in one frame must apply one delta, not three.
-      if (frame !== undefined) return;
-      frame = requestAnimationFrame(() => {
-        frame = undefined;
-        const el = messageListRef.current?.firstElementChild as HTMLElement | null;
-        if (!el) return;
+      // Applied inline: writing `scrollTop` resizes nothing, so it cannot feed this observer, and
+      // deferring to a frame shows the reader a visible shift on a 1,200 px growth. ResizeObserver
+      // already delivers once per frame.
+      const el = messageListRef.current?.firstElementChild as HTMLElement | null;
+      if (!el) return;
 
-        const previous = plainTopRef.current;
-        // The inner column carries `min-height: 100%`, so it also resizes when the *viewport*
-        // changes (composer, keyboard, rotation). Correcting for those would scroll the timeline
-        // for a viewport change; re-snapshot and leave scrollTop alone.
-        if (el.clientHeight !== previous.clientHeight) {
-          plainTopRef.current = snapshotPlainTop(el);
-          return;
-        }
-        // The bottom latch owns this state and the two would fight.
-        if (atBottomRef.current) {
-          plainTopRef.current = snapshotPlainTop(el);
-          return;
-        }
-        const row = previous.topRowId
-          ? el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(previous.topRowId)}"]`)
-          : null;
-        if (!row || previous.topRowViewport === undefined) {
-          plainTopRef.current = snapshotPlainTop(el);
-          return;
-        }
-
-        const delta = row.getBoundingClientRect().top - previous.topRowViewport;
-        if (Math.abs(delta) >= 1) el.scrollTop += delta;
+      const previous = plainTopRef.current;
+      // A gesture is in flight: the snapshot predates the finger by however far it has moved, and
+      // correcting against it would yank the list back.
+      if (performance.now() - plainLastScrollAtRef.current < 120) {
         plainTopRef.current = snapshotPlainTop(el);
-      });
+        return;
+      }
+      // The inner column carries `min-height: 100%`, so it also resizes when the *viewport* changes
+      // (composer, keyboard, rotation). Correcting for those would scroll the timeline for a
+      // viewport change; re-snapshot and leave scrollTop alone.
+      if (el.clientHeight !== previous.clientHeight) {
+        plainTopRef.current = snapshotPlainTop(el);
+        return;
+      }
+      // The bottom latch owns this state and the two would fight.
+      if (atBottomRef.current) {
+        plainTopRef.current = snapshotPlainTop(el);
+        return;
+      }
+      const row = previous.topRowId
+        ? el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(previous.topRowId)}"]`)
+        : null;
+      if (!row || previous.topRowViewport === undefined) {
+        plainTopRef.current = snapshotPlainTop(el);
+        return;
+      }
+
+      const delta = row.getBoundingClientRect().top - previous.topRowViewport;
+      if (Math.abs(delta) >= 1) el.scrollTop += delta;
+      plainTopRef.current = snapshotPlainTop(el);
     });
 
     observer.observe(content);
     return () => {
       observer.disconnect();
-      if (frame !== undefined) cancelAnimationFrame(frame);
     };
   }, [plainTimeline]);
 
@@ -1996,6 +2010,7 @@ export function RoomTimeline({
     (event: UIEvent<HTMLDivElement>) => {
       const el = event.currentTarget;
       notifyScroll();
+      plainLastScrollAtRef.current = performance.now();
       // Keep the resize correction's reference fresh: a scroll followed by an image load would
       // otherwise measure against the position the reader had before the gesture.
       plainTopRef.current = snapshotPlainTop(el);
