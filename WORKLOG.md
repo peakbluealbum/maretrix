@@ -71,6 +71,12 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-12 — `83cc82b` on staging** (`11:55:38Z`, chunk `page-Z-J0rd8O.js`): instrumentation only —
+   `plain-window` (window before/after, anchor viewport position before/after the correction, top row
+   identity) and `plain-scroll` (throttled scroll path). One capture at the jump names the commit that
+   moved the viewport. **Release hygiene:** the trace does up to 400 rect reads per commit and must be
+   gated behind `?tldebug=1` or stripped before the tag — the sampler defaults on for iOS.
+
    **2026-11-12 — `05d02e8` on staging** (`09:13:38Z`, chunk `page-CtZmmMsX.js`): the window is derived
    during render (`nextPlainWindow`) so the commit that first sees a page already slices past it, and the
    plain path re-pins the bottom for eight frames while the reader is at the bottom. Pending a device pass
