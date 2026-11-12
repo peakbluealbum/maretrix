@@ -169,3 +169,40 @@ export function compensateForAnchor(
 ): number {
   return Math.max(0, scrollTop + (currentTop - previousTop));
 }
+
+export type WindowTransition = {
+  current: PlainWindow;
+  total: number;
+  /** Index of the jump target in the current data, or -1. */
+  anchorIndex: number;
+  /** `start` of the window that was on screen in the previous commit. */
+  renderedStart: number;
+  /** Rows inserted in front of the previous first row, or -1. */
+  prependCount: number;
+  hold: boolean;
+};
+
+/**
+ * The window for **this** render, given the data as it is right now.
+ *
+ * Derived during render on purpose. When a page lands, `processedEvents` grows in front of the
+ * window that is still on screen; if the window is only extended in a layout effect, the render
+ * that carries the new page slices it with the old indices, the reader's row leaves the DOM for a
+ * frame, and the scroll compensation measures nothing — the reader ends up on the new page. One
+ * render late is one page late.
+ */
+export function nextPlainWindow(t: WindowTransition): PlainWindow {
+  const { current, total, anchorIndex, renderedStart, prependCount, hold } = t;
+  if (total <= 0) return EMPTY_WINDOW;
+
+  const windowMoved = current.start !== renderedStart;
+  if (prependCount > 0 && !windowMoved && (hold || anchorIndex >= 0)) {
+    return extendForPrepend(current, total, prependCount);
+  }
+  if (anchorIndex >= 0) {
+    return containsIndex(current, anchorIndex)
+      ? reconcileWindow(current, total, true, anchorIndex)
+      : anchorWindow(total, anchorIndex);
+  }
+  return reconcileWindow(current, total, hold);
+}

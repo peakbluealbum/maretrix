@@ -47,14 +47,11 @@ import {
   anchorWindow,
   compensateForAnchor,
   compensateForPrepend,
-  containsIndex,
   EMPTY_WINDOW,
-  extendForPrepend,
   growWindow,
+  nextPlainWindow,
   PLAIN_MAX_ROWS,
   shouldRequestBackfill,
-  reconcileWindow,
-  windowLength,
   type PlainWindow,
 } from './plainWindow';
 import { usePlainTimeline } from './usePlainTimeline';
@@ -466,9 +463,8 @@ export function RoomTimeline({
   const vListRef = useRef<VListHandle>(null);
   // WebKit renders a bounded plain list instead of virtua (fallback #4, 1.1.1).
   const plainTimeline = usePlainTimeline();
-  const [plainWindow, setPlainWindow] = useState<PlainWindow>(EMPTY_WINDOW);
-  const plainWindowRef = useRef(plainWindow);
-  plainWindowRef.current = plainWindow;
+  const [plainWindowState, setPlainWindow] = useState<PlainWindow>(EMPTY_WINDOW);
+  const plainWindowRef = useRef<PlainWindow>(EMPTY_WINDOW);
   // Hold mode: the window stops following the live tail once the reader has scrolled away from the
   // bottom or paginated backwards. Without it every backward page is undone by the next reconcile,
   // which re-slices the newest 150 rows and throws the reader forward a page at a time.
@@ -1631,6 +1627,42 @@ export function RoomTimeline({
    * `scrollHeight` — no list measurement anywhere, because the measurement is the bug (virtua
    * reported 635 px for a 33,370 px scroller on the device).
    */
+  /**
+   * The window for **this** render, derived from the data as it is right now.
+   *
+   * Not an effect: when a page lands, `processedEvents` grows in front of the window that is still
+   * on screen. Extending the window in a layout effect means the render carrying the new page
+   * slices it with the old indices, the reader's row leaves the DOM for a frame, the scroll
+   * compensation has nothing to measure, and the reader ends up on the new page — one page late per
+   * page. Deriving during render means the first commit that sees the page already includes it.
+   */
+  const plainWindow = useMemo(() => {
+    if (!plainTimeline) return plainWindowState;
+    const { firstId, start: renderedStart } = plainShiftRef.current;
+    const previousFirstIndex =
+      firstId === undefined ? -1 : processedEvents.findIndex((event) => event.id === firstId);
+    // `findIndex` is the row's absolute index; the number of rows inserted in front of it is that
+    // index minus the window's start (thousands of rows apart once the reader has scrolled up).
+    const prependCount =
+      previousFirstIndex >= 0 && previousFirstIndex > renderedStart
+        ? previousFirstIndex - renderedStart
+        : -1;
+    const anchorId = scrollAnchorRef.current;
+    const anchorIndex =
+      anchorId === undefined ? -1 : processedEvents.findIndex((event) => event.id === anchorId);
+
+    return nextPlainWindow({
+      current: plainWindowState,
+      total: processedEvents.length,
+      anchorIndex,
+      renderedStart,
+      prependCount,
+      hold: plainHold,
+    });
+  }, [plainTimeline, processedEvents, plainWindowState, plainHold]);
+
+  plainWindowRef.current = plainWindow;
+
   const plainRows = useMemo(
     () =>
       plainTimeline
@@ -1643,61 +1675,43 @@ export function RoomTimeline({
   const plainFillAttemptsRef = useRef(0);
   const plainFillLengthRef = useRef(0);
   const plainFillWaitRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
+  const plainPinFrameRef = useRef<number | undefined>(undefined);
+  /**
+   * Re-pin to the bottom for a few frames.
+   *
+   * The plain path has no virtua latch, and one assignment lands on whatever row heights exist at
+   * that instant — images and embeds resolve a frame or two later, so a single scroll leaves the
+   * newest message just off screen. Only while the reader is at the bottom; it never fights a
+   * gesture.
+   */
+  const pinPlainBottom = useCallback((frames = 8) => {
+    if (plainPinFrameRef.current !== undefined) cancelAnimationFrame(plainPinFrameRef.current);
+    let remaining = frames;
+    const step = () => {
+      plainPinFrameRef.current = undefined;
+      const el = messageListRef.current?.firstElementChild as HTMLElement | null;
+      if (!el || !atBottomRef.current) return;
+      el.scrollTop = el.scrollHeight;
+      remaining -= 1;
+      if (remaining > 0) plainPinFrameRef.current = requestAnimationFrame(step);
+    };
+    plainPinFrameRef.current = requestAnimationFrame(step);
+  }, []);
   // The first *rendered* row is the reader's anchor, and it is not the first processed event once
   // the window has slid. Kept as a plain value so the effects depend on an id, not an array.
   const firstRenderedId = plainRows[0]?.id;
 
+  // The derived window is the source of truth for rendering; this only keeps the state (the base
+  // for the next derivation) in step, and only when it actually moved.
   useLayoutEffect(() => {
     if (!plainTimeline) return;
-    const total = processedEvents.length;
-    const current = plainWindowRef.current;
-
-    if (total === 0) {
-      if (windowLength(current) !== 0) setPlainWindow(EMPTY_WINDOW);
-      return;
+    if (
+      plainWindow.start !== plainWindowState.start ||
+      plainWindow.end !== plainWindowState.end
+    ) {
+      setPlainWindow(plainWindow);
     }
-
-    const anchorId = scrollAnchorRef.current;
-    const anchorIndex =
-      anchorId === undefined ? -1 : processedEvents.findIndex((event) => event.id === anchorId);
-
-    // Rows prepended at the front shift every existing row up. Detected by the first rendered id,
-    // not by `start`: while holding, `start` deliberately does not move, so a start-based test
-    // never fires on the case that matters.
-    const previousFirstId = plainShiftRef.current.firstId;
-    const renderedStart = plainShiftRef.current.start;
-    const previousFirstIndex =
-      previousFirstId !== undefined && previousFirstId !== firstRenderedId
-        ? processedEvents.findIndex((event) => event.id === previousFirstId)
-        : -1;
-    // `findIndex` is the row's *absolute* index in the timeline, not the number of rows inserted
-    // before it: past the start of the window those differ by `renderedStart` (thousands of rows).
-    // Using the absolute index overshot `end` towards the live edge and threw the reader days.
-    const prependCount =
-      previousFirstIndex >= 0 && previousFirstIndex > renderedStart
-        ? previousFirstIndex - renderedStart
-        : -1;
-
-    let next: PlainWindow;
-    // A window that already moved is a grow-back, not a page prepend: the extra rows are already
-    // in it, and only the scroll compensation is owed.
-    const windowMoved = current.start !== renderedStart;
-    if (prependCount > 0 && !windowMoved && (plainHold || anchorIndex >= 0)) {
-      next = extendForPrepend(current, total, prependCount);
-    } else if (anchorIndex >= 0) {
-      next = containsIndex(current, anchorIndex)
-        ? reconcileWindow(current, total, true, anchorIndex)
-        : anchorWindow(total, anchorIndex);
-    } else {
-      next = reconcileWindow(current, total, plainHold);
-    }
-
-    // Only touch state when the window actually changes. Calling `setPlainWindow` on every render
-    // (the helpers always return a fresh object, and `processedEvents` is a new array each render)
-    // buried React in nested updates: on the device that surfaced as #185 with 51 RoomState
-    // listeners while a page was filling.
-    if (next.start !== current.start || next.end !== current.end) setPlainWindow(next);
-  }, [plainTimeline, processedEvents, firstRenderedId, plainHold]);
+  }, [plainTimeline, plainWindow, plainWindowState]);
 
   /**
    * Keep the reader on the same row.
@@ -1750,9 +1764,16 @@ export function RoomTimeline({
       setIsReady(true);
       return undefined;
     }
-    if (atBottomRef.current) el.scrollTop = el.scrollHeight;
+    if (atBottomRef.current) pinPlainBottom();
     return undefined;
-  }, [plainTimeline, processedEvents.length, plainRows.length]);
+  }, [plainTimeline, processedEvents.length, plainRows.length, pinPlainBottom]);
+
+  useLayoutEffect(
+    () => () => {
+      if (plainPinFrameRef.current !== undefined) cancelAnimationFrame(plainPinFrameRef.current);
+    },
+    []
+  );
 
   /**
    * Mount-time fill.

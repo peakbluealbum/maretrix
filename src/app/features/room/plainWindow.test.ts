@@ -8,6 +8,7 @@ import {
   EMPTY_WINDOW,
   growWindow,
   liveWindow,
+  nextPlainWindow,
   PLAIN_GROW_STEP,
   PLAIN_LIVE_TAIL,
   PLAIN_MAX_ROWS,
@@ -220,5 +221,71 @@ describe('compensateForAnchor', () => {
 
   it('clamps at the top of the list', () => {
     expect(compensateForAnchor(10, 40, -500)).toBe(0);
+  });
+});
+
+describe('nextPlainWindow', () => {
+  it('extends in the same render that receives a prepended page', () => {
+    // Window on screen {0,49}; the page landed, so the old first row now sits at 60.
+    const next = nextPlainWindow({
+      current: { start: 0, end: 49 },
+      total: 110,
+      anchorIndex: -1,
+      renderedStart: 0,
+      prependCount: 60,
+      hold: true,
+    });
+    expect(containsIndex(next, 60)).toBe(true);
+    expect(next.end).toBe(109);
+  });
+
+  it('follows the live tail when not holding and anchored nowhere', () => {
+    const next = nextPlainWindow({
+      current: { start: 0, end: 49 },
+      total: 500,
+      anchorIndex: -1,
+      renderedStart: 0,
+      prependCount: -1,
+      hold: false,
+    });
+    expect(next).toEqual(liveWindow(500));
+  });
+
+  it('centres on a jump target that is outside the window', () => {
+    const next = nextPlainWindow({
+      current: liveWindow(6000),
+      total: 6000,
+      anchorIndex: 120,
+      renderedStart: 5850,
+      prependCount: -1,
+      hold: true,
+    });
+    expect(containsIndex(next, 120)).toBe(true);
+  });
+
+  it('does not extend when the window already moved (grow-back)', () => {
+    const current = { start: 2500, end: 2649 };
+    const next = nextPlainWindow({
+      current,
+      total: 6000,
+      anchorIndex: -1,
+      renderedStart: 2600,
+      prependCount: 100,
+      hold: true,
+    });
+    expect(next).toEqual(current);
+  });
+
+  it('is empty for an empty room', () => {
+    expect(
+      nextPlainWindow({
+        current: { start: 0, end: 9 },
+        total: 0,
+        anchorIndex: -1,
+        renderedStart: 0,
+        prependCount: -1,
+        hold: false,
+      })
+    ).toEqual(EMPTY_WINDOW);
   });
 });
