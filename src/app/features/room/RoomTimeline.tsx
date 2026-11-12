@@ -472,9 +472,13 @@ export function RoomTimeline({
   const plainShiftRef = useRef<{
     firstId?: string;
     firstTop: number;
+    firstTopViewport: number;
+    topRowId?: string;
+    topRowViewport: number;
     start: number;
+    end: number;
     height: number;
-  }>({ firstTop: 0, start: -1, height: 0 });
+  }>({ firstTop: 0, firstTopViewport: 0, topRowViewport: 0, start: -1, end: -1, height: 0 });
   const { isScrolling: isTimelineScrolling, notifyScroll } = useScrollActivity();
   const [atBottomState, setAtBottomState] = useState(true);
   const atBottomRef = useRef(atBottomState);
@@ -1036,7 +1040,7 @@ export function RoomTimeline({
     // The next room inherits nothing: not the hold, not the window, not the last measured height.
     setPlainHold(false);
     setPlainWindow(EMPTY_WINDOW);
-    plainShiftRef.current = { firstTop: 0, start: -1, height: 0 };
+    plainShiftRef.current = { firstTop: 0, firstTopViewport: 0, topRowViewport: 0, start: -1, end: -1, height: 0 };
     plainFillAttemptsRef.current = 0;
     plainFillLengthRef.current = 0;
     plainFillWaitRef.current = { key: '', count: 0 };
@@ -1727,31 +1731,85 @@ export function RoomTimeline({
 
     const previous = plainShiftRef.current;
     const height = el.scrollHeight;
-    const anchor = previous.firstId
-      ? el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(previous.firstId)}"]`)
-      : null;
 
     // Content-space offset: viewport-relative positions move when the reader scrolls, and
     // correcting against those would undo the gesture.
     const contentTop = (row: HTMLElement) =>
       el.scrollTop + row.getBoundingClientRect().top - el.getBoundingClientRect().top;
 
+    // The row actually at the top of the viewport, and where it sits on screen. Recorded before and
+    // after so the trace can say whether the reader's eye moved, not just whether the invariant we
+    // already believe in held.
+    const elRect = el.getBoundingClientRect();
+    const rowAtTop = (): HTMLElement | null => {
+      for (const row of el.querySelectorAll<HTMLElement>('[data-message-id]')) {
+        if (row.getBoundingClientRect().bottom > elRect.top) return row;
+      }
+      return null;
+    };
+
+    const anchor = previous.firstId
+      ? el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(previous.firstId)}"]`)
+      : null;
+    const anchorTopAfterCommit = anchor ? anchor.getBoundingClientRect().top : 0;
+    const scrollTopBefore = el.scrollTop;
+
     if (anchor) {
-      const top = contentTop(anchor);
-      el.scrollTop = compensateForAnchor(el.scrollTop, previous.firstTop, top);
+      el.scrollTop = compensateForAnchor(el.scrollTop, previous.firstTop, contentTop(anchor));
     } else if (previous.firstId !== undefined && previous.height > 0) {
       // The anchor row left the window (a cap trim past it): fall back to the height delta.
       el.scrollTop = compensateForPrepend(el.scrollTop, previous.height, height);
     }
 
     const firstRow = el.querySelector<HTMLElement>('[data-message-id]');
+    const topAfterCommit = rowAtTop();
+
+    timelineDebug.note(
+      'plain-window',
+      {
+        total: processedEvents.length,
+        startBefore: previous.start,
+        endBefore: previous.end,
+        startAfter: plainWindow.start,
+        endAfter: plainWindow.end,
+        firstIdBefore: previous.firstId,
+        firstIdAfter: firstRow?.dataset.messageId,
+        topRowBefore: previous.topRowId,
+        topRowAfter: topAfterCommit?.dataset.messageId,
+        // Viewport coordinates, deliberately: a content-space delta is invariant by construction.
+        anchorTopBefore: previous.firstTopViewport,
+        anchorTopAfterCommit,
+        anchorTopFinal: anchor ? anchor.getBoundingClientRect().top : 0,
+        topRowViewportBefore: previous.topRowViewport,
+        topRowViewportAfter: topAfterCommit ? topAfterCommit.getBoundingClientRect().top : 0,
+        scrollTopBefore,
+        scrollTopAfter: el.scrollTop,
+        scrollHeight: height,
+      },
+      null,
+      messageListRef.current,
+      debugCtx()
+    );
+
     plainShiftRef.current = {
       firstId: firstRow?.dataset.messageId,
       firstTop: firstRow ? contentTop(firstRow) : 0,
+      firstTopViewport: firstRow ? firstRow.getBoundingClientRect().top : 0,
+      topRowId: topAfterCommit?.dataset.messageId,
+      topRowViewport: topAfterCommit ? topAfterCommit.getBoundingClientRect().top : 0,
       start: plainWindow.start,
+      end: plainWindow.end,
       height,
     };
-  }, [plainTimeline, processedEvents, firstRenderedId, plainRows.length, plainWindow.start]);
+  }, [
+    plainTimeline,
+    processedEvents,
+    firstRenderedId,
+    plainRows.length,
+    plainWindow.start,
+    plainWindow.end,
+    debugCtx,
+  ]);
 
   useLayoutEffect(() => {
     if (!plainTimeline) return undefined;
@@ -1867,6 +1925,20 @@ export function RoomTimeline({
       if (now - plainScrollAtRef.current < 300) return;
       plainScrollAtRef.current = now;
 
+      timelineDebug.note(
+        'plain-scroll',
+        {
+          scrollTop: Math.round(el.scrollTop),
+          scrollHeight: el.scrollHeight,
+          rows: processedEventsRef.current.length,
+          start: plainWindowRef.current.start,
+          end: plainWindowRef.current.end,
+        },
+        null,
+        messageListRef.current,
+        debugCtx()
+      );
+
       const total = processedEventsRef.current.length;
       if (el.scrollTop < 500) {
         // Fetch only at the loaded edge. Inside a long loaded window there are already rows above
@@ -1892,7 +1964,7 @@ export function RoomTimeline({
         setPlainWindow((prev) => growWindow(prev, total, 'forward'));
       }
     },
-    [notifyScroll, setAtBottom]
+    [notifyScroll, setAtBottom, debugCtx]
   );
   const previousProcessedEventIdsRef = useRef<string[] | undefined>(undefined);
   const processedEventIds = useMemo(
