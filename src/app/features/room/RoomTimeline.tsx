@@ -373,7 +373,13 @@ type PlainTopSnapshot = {
   topRowViewport?: number;
 };
 
-/** The row at the top of the viewport, and where it sits on screen. One rect read per row it walks. */
+/**
+ * The row at the top of the viewport, and where it sits on screen.
+ *
+ * One `elementsFromPoint` probe at the scroller's left edge; the row scan is the fallback for a gap
+ * or a full-bleed row, not the normal path. This runs on every scroll event, so the number of
+ * layout reads matters.
+ */
 const snapshotPlainTop = (el: HTMLElement): PlainTopSnapshot => {
   const rect = el.getBoundingClientRect();
   // One hit-test rather than a walk with a rect read per row: this runs on every scroll event, and
@@ -1715,7 +1721,7 @@ export function RoomTimeline({
   const plainFillWaitRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
   const plainPinFrameRef = useRef<number | undefined>(undefined);
   const plainTopRef = useRef<PlainTopSnapshot>({ clientHeight: 0 });
-  const plainLastScrollAtRef = useRef(0);
+  const plainLastUserIntentAtRef = useRef(0);
   /**
    * Re-pin to the bottom for a few frames.
    *
@@ -1895,7 +1901,7 @@ export function RoomTimeline({
       const previous = plainTopRef.current;
       // A gesture is in flight: the snapshot predates the finger by however far it has moved, and
       // correcting against it would yank the list back.
-      if (performance.now() - plainLastScrollAtRef.current < 120) {
+      if (performance.now() - plainLastUserIntentAtRef.current < 120) {
         plainTopRef.current = snapshotPlainTop(el);
         return;
       }
@@ -1924,9 +1930,24 @@ export function RoomTimeline({
       plainTopRef.current = snapshotPlainTop(el);
     });
 
+    // Intent, not scroll events: programmatic writes raise scroll events too, so stamping there
+    // would let the correction stand down for the very growth it exists to absorb (the page commit
+    // corrects, its own event stamps the guard, the image settles 118 ms later and is ignored).
+    const markIntent = () => {
+      plainLastUserIntentAtRef.current = performance.now();
+    };
+    scroller.addEventListener('touchstart', markIntent, { passive: true });
+    scroller.addEventListener('touchmove', markIntent, { passive: true });
+    scroller.addEventListener('wheel', markIntent, { passive: true });
+    scroller.addEventListener('pointerdown', markIntent);
+
     observer.observe(content);
     return () => {
       observer.disconnect();
+      scroller.removeEventListener('touchstart', markIntent);
+      scroller.removeEventListener('touchmove', markIntent);
+      scroller.removeEventListener('wheel', markIntent);
+      scroller.removeEventListener('pointerdown', markIntent);
     };
   }, [plainTimeline]);
 
@@ -2010,7 +2031,6 @@ export function RoomTimeline({
     (event: UIEvent<HTMLDivElement>) => {
       const el = event.currentTarget;
       notifyScroll();
-      plainLastScrollAtRef.current = performance.now();
       // Keep the resize correction's reference fresh: a scroll followed by an image load would
       // otherwise measure against the position the reader had before the gesture.
       plainTopRef.current = snapshotPlainTop(el);
