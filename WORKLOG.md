@@ -71,6 +71,13 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-12 — `836ff18` on staging** (`13:01:19Z`, chunk `page-Dx_ugLQP.js`): the late-layout
+   correction subtracts the reader's scroll delta since the snapshot, so finger movement cancels and only
+   content growth produces a delta — the intent guard is gone (a touchmove at 60 Hz kept it from ever
+   expiring while 3,592 px settled). Signature to look for: `scrollHeight` and `scrollTop` stepping by the
+   same amount in one record. **Watch for:** a programmatic scrollTop write during momentum stopping the
+   fling on iOS — the fix would be an 8 px threshold or deferring to `scrollend`, not another formula.
+
    **2026-11-12 — `a405b3e` on staging** (`12:30:16Z`, chunk `page-BVdxx9q9.js`): late-layout pin — a
    ResizeObserver on the inner column holds the top row's viewport position through post-commit growth
    (images, embeds), guarded on user intent (touch/wheel/pointer, not scroll events, which fired for
