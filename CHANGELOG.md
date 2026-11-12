@@ -3,6 +3,53 @@
 This fork versions independently of upstream, starting at 1.0.0. Upstream's own changelog lives at
 <https://github.com/SableClient/Sable/blob/dev/CHANGELOG.md>.
 
+## 1.1.1
+
+Fix release for the iOS timeline, plus the desktop and web fixes that came out of the same hunt.
+
+### iOS
+
+- **The room timeline no longer goes blank.** On iOS the scroller renders a bounded plain list of
+  recent messages instead of a virtualised one, so opening a room, switching rooms and coming back
+  fill the viewport from the newest message instead of leaving it empty.
+- **Loading history does not move you.** Paging in older messages keeps the row you were reading
+  where it is, and a message arriving while you are scrolled up stays below you instead of pulling
+  the view back to the bottom.
+- **Busy and encrypted rooms open.** The window update now runs once per change rather than on every
+  render, which removes the update loop that could crash the app ("maximum update depth exceeded"
+  in the 1.1.0 web build).
+
+### Every platform
+
+- **The timeline no longer bounces the whole window.** Overscroll is contained to the message list,
+  so reaching the end of a room on a trackpad or touchscreen leaves the rest of the app still.
+- **Swiping back to the channel list no longer flashes white.** The room surface is painted while it
+  moves, and the room is promoted to its own compositing layer only for the duration of the gesture.
+
+### Web app
+
+- **A rotated script now fails as a 404, not as the app shell.** A browser holding an old precache
+  was answered with `index.html` where a module should be, and cached it for a year. Installs still
+  on a broken build need the home-screen app removed and re-added once.
+- **The update banner loads the build it advertises.** The page reloads when the new service worker
+  takes control rather than on the next line, so the old precache cannot win the race.
+
+### Native
+
+- **"Sign in with SSO" reaches the app.** The redirect was built with the upstream `sable://`
+  scheme, which no platform registers; it now uses `maretrix://`, and the callback is accepted
+  instead of discarded as a protocol mismatch.
+
+### macOS
+
+- **One DMG for both architectures.** The macOS build defaults to a universal binary; a host-arch
+  build had shipped before while the updater advertised both darwin architectures against it.
+
+### Under the hood
+
+- virtua is now 0.54.2 (was 0.50.1) on every platform that still virtualises rows; iOS uses the
+  plain list instead.
+
 ## 1.1.0
 
 Focus: shipping the native clients properly, and making Linux installable at all. This entry

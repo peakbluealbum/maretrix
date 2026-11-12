@@ -7,7 +7,7 @@ starts only when the current one is done or clearly trending to done.
 |---|---|---|---|---|---|
 | 1.0.0 | main (tag) | — | 1.0.0 (4 of 6 — no Arch package yet) | shipped | fork baseline |
 | 1.1.0 | main (tag) | — | all six at 1.1.0 | shipped | native clients, Linux installable |
-| 1.1.1 | release/1.1.1 | ~/maretrix-1.1.1 | package.json 1.1.1; **five still 1.1.0** | in progress | iOS WebKit timeline fixes; device pass is the gate |
+| 1.1.1 | release/1.1.1 | ~/maretrix-1.1.1 | package.json 1.1.1; **five still 1.1.0** | in progress | iOS WebKit timeline + native SSO scheme fix; device pass is the gate |
 | 1.2.0 | — | — | — | not started | gated on 1.1.1 being done or trending correctly |
 
 ## Rules

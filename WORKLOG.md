@@ -71,11 +71,25 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-12 — `05d02e8` on staging** (`09:13:38Z`, chunk `page-CtZmmMsX.js`): the window is derived
+   during render (`nextPlainWindow`) so the commit that first sees a page already slices past it, and the
+   plain path re-pins the bottom for eight frames while the reader is at the bottom. Pending a device pass
+   on both gestures.
+
+   **2026-11-12 — 1.2.0 follow-ups from review:** `nextPlainWindow` tests the prepend branch before the
+   anchor, so a jump page landing in the same commit as a prepend extends instead of centring; and the
+   "derived during render" claim has no component-level (jsdom) regression test — only the pure transition.
+
    **2026-11-11 — anchor compensation (`e1d486c` + `fd48292` nit) on staging** (`12:24:25Z`, chunk
    `page-Ca1xS7f5.js`). The gate that stops premature backfill and the anchor that keeps the reader's row
    fixed are both in: the scroll correction measures the first rendered row's content-space offset before
    and after the commit, so a cap-sized window that adds rows above and drops rows below no longer drifts.
    29 window tests, typecheck and lint green.
+
+   **2026-11-11 — staging re-checked read-only (pm):** `https://appdev.daiwascarlet.com/` serves
+   `assets/page-Ca1xS7f5.js` — the anchor build — while production serves a different chunk
+   (`page-CXK2pRjJ.js`). The pass is unambiguously against staging, and nothing has moved since the
+   deploy.
 
    **2026-11-11 — landmark on `29d8c07`:** encrypted rooms load without crashing, the timeline paints on
    every channel switch, hard flings are no longer jittery. Unencrypted and encrypted both pass; the one
@@ -185,12 +199,29 @@
    after the plain path: forward requests that persist once `scrollHeight` is real are a bug; if they
    stop, this item closes and the reducer proceeds.
 
+9. **Release office (pm) — changelog and bump are staged, nothing committed.** `CHANGELOG.md` carries
+   the 1.1.1 section and `VERSIONS.md` names the SSO fix; both are uncommitted in `~/maretrix-1.1.1`
+   on purpose (pm does not commit). The six-file bump is a ready patch at
+   `~/worklogs/maretrix-1.1.1-bump.patch`, checked with `git apply --check` against `94d358e`; it is
+   not applied because the version string would then change in any build made from this worktree. The
+   changelog section is a draft: at tag time, strike any bullet the device pass does not confirm.
+
+10. **Non-iOS timeline smoke before the tag — the pass covers the plain path only.** `virtua` moved
+   0.50.1 → 0.54.2 on every platform that still virtualises, and no device has run it: the 7-scenario
+   pass is iOS/plain, and a green jsdom suite says nothing about layout. Done when one busy room is
+   scrolled to the top and back on the macOS build (and the Linux build if it is at hand) with no
+   blank range, no stuck scroll and no console loop. Same session can confirm the two shared-layout
+   bullets in the changelog (overscroll containment, swipe flash).
+
 ## Blocked
 
 - **1.1.1 does not ship without a device pass.** A fix release that does not fix the bug is worse
   than no release.
 - **1.2.0** — not started by design. Start only when 1.1.1 is done or clearly trending correctly.
   Prerequisite: merge `release/1.1.1` back into `main` so 1.2.0 branches from the shipped state.
+- **SSO end-to-end check** — needs SSO enabled on `chat.daiwascarlet.com` (different team, later). Until
+  then the scheme fix ships on the static proof in Decisions; re-run one native sign-in the first time
+  a homeserver with SSO is reachable.
 
 ## Decisions
 
@@ -263,4 +294,27 @@
   regression.
 - One worktree per release line; 1.2.0 gets its own worktree when it starts.
 - Long work runs in a dedicated session (`mrx/<line>/<topic>`), never in a room turn.
+- **The SSO scheme fix rides 1.1.1, as its own commit.** Native SSO is dead on the shipped 1.1.0 and
+  on this line: `Login.tsx:96` and `Register.tsx:41` build `sable://login/…` through
+  `SSOTauri.ts:4` (`TAURI_SSO_PROTOCOL = 'sable:'`) while `tauri.conf.json` and `AndroidManifest.xml`
+  register only `maretrix` and `com.daiwascarlet.maretrix`. That is platform breakage, not a feature.
+  One constant plus the assertions in `SSOTauri.test.ts` (which currently pin the broken scheme);
+  it touches no timeline byte, so the pass on `page-Ca1xS7f5.js` stays valid — prove it at cut time
+  with `git diff <pass-commit>..<release> -- src/` naming `SSOTauri.ts` and its test only.
+  **No end-to-end check is possible yet (owner, 2026-11-11):** `chat.daiwascarlet.com` has no SSO
+  configured, so the flow cannot be exercised from any client until another team enables it. The fix
+  ships on static proof, which is complete except for the homeserver's 302: the builder emits
+  `maretrix://login/…`; `tauri.conf.json`, `AndroidManifest.xml` and the runtime `register_all()` all
+  register `maretrix`; `deep_link_ipc.rs:12` already lists `maretrix:` in `SCHEMES`; and
+  `parseTauriSsoCallback` gates on the same constant plus hostname `login`, so `maretrix://share` and
+  `maretrix://room` cannot be swallowed. Custom-scheme delivery to this app is already exercised by
+  the OIDC callback, so the scheme name is the only variable. End-to-end verification is a Blocked
+  item below, not a gate on 1.1.1.
+- **`WORKLOG.md` never reaches `main`.** This repo is public; the log carries image digests, container
+  names, deploy stamps and end-user reports. It stays on `release/1.1.1` while the device loop is
+  live, then moves to `~/homelab-docs/development/maretrix/WORKLOG.md` in the merge-back and the repo
+  copy is deleted in an ordinary commit. The private copy is stale at 2026-11-07 — reconcile it from
+  the repo copy during that move, not before; two live state files are worse than one stale one.
+  `VERSIONS.md` does land on `main` with the merge — it is release documentation, and its absence
+  there today is expected, not a defect.
 - Signing stays ad-hoc; no Developer ID or notarization.
