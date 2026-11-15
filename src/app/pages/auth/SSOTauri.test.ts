@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { type as osType } from '@tauri-apps/plugin-os';
 import {
@@ -8,6 +10,16 @@ import {
   rememberTauriSsoNonce,
   takeTauriSsoNonce,
 } from './SSOTauri';
+
+/**
+ * The scheme the app registers, read from the Tauri config the same way the build reads it. Hard-coding
+ * `sable:` here is how the login ended up pointing at a scheme no platform resolved.
+ */
+const tauriConf = JSON.parse(
+  readFileSync(resolve(__dirname, '../../../../src-tauri/tauri.conf.json'), 'utf8')
+) as { plugins?: { 'deep-link'?: { desktop?: { schemes?: string[] } } } };
+const SSO_SCHEME = tauriConf.plugins?.['deep-link']?.desktop?.schemes?.[0] ?? 'maretrix';
+const SSO_PROTOCOL = `${SSO_SCHEME}:`;
 
 vi.mock('@tauri-apps/plugin-os', () => ({
   type: vi.fn<() => string>(() => 'android'),
@@ -26,7 +38,7 @@ describe('buildTauriSsoRedirectUrl', () => {
 
     const url = new URL(buildTauriSsoRedirectUrl('https://hs.example'));
 
-    expect(url.protocol).toBe('sable:');
+    expect(url.protocol).toBe(SSO_PROTOCOL);
     expect(url.hostname).toBe('login');
     expect(url.pathname).toBe('/lp/sso-callback');
     expect(url.searchParams.get('server')).toBe('https://hs.example');
@@ -51,7 +63,17 @@ describe('buildTauriSsoRedirectUrl', () => {
   });
 
   it('builds the url without resolving against a non-special base', () => {
-    expect(buildTauriSsoRedirectUrl()).toMatch(/^sable:\/\/login\/lp\/sso-callback\?/);
+    expect(buildTauriSsoRedirectUrl()).toMatch(
+      new RegExp(`^${SSO_SCHEME}:\\/\\/login\\/lp\\/sso-callback\\?`)
+    );
+  });
+});
+
+describe('the registered scheme', () => {
+  it('is the one tauri.conf.json advertises, not a hard-coded one', () => {
+    expect(SSO_SCHEME).toBeTruthy();
+    expect(tauriConf.plugins?.['deep-link']?.desktop?.schemes).toContain(SSO_SCHEME);
+    expect(new URL(buildTauriSsoRedirectUrl()).protocol).toBe(SSO_PROTOCOL);
   });
 });
 

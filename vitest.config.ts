@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import path from 'path';
+import fs from 'fs';
 
 // Standalone Vitest config — intentionally excludes Cloudflare, PWA, compression,
 // and other production-only Vite plugins that don't apply to unit tests.
@@ -32,6 +33,13 @@ export default defineConfig({
     },
   },
   define: {
+    TAURI_SSO_SCHEME: JSON.stringify(
+      (
+        JSON.parse(
+          fs.readFileSync(path.resolve(__dirname, 'src-tauri/tauri.conf.json'), 'utf8')
+        ) as { plugins?: { 'deep-link'?: { desktop?: { schemes?: string[] } } } }
+      ).plugins?.['deep-link']?.desktop?.schemes?.[0] ?? 'maretrix'
+    ),
     SABLE_PRODUCT_NAME: JSON.stringify('Sable'),
     SABLE_BUILD_FLAVOR: JSON.stringify('stable'),
     APP_VERSION: JSON.stringify('test'),

@@ -1,7 +1,9 @@
 import { SSO_CALLBACK_PATH } from '$pages/paths';
 import { type as osType } from '@tauri-apps/plugin-os';
 
-const TAURI_SSO_PROTOCOL = 'sable:';
+// Derived from `plugins.deep-link` in tauri.conf.json at build time: the app can only receive
+// the schemes it registers, so hard-coding one here is how the login dead-ended before.
+const TAURI_SSO_PROTOCOL = `${TAURI_SSO_SCHEME}:`;
 const TAURI_SSO_HOST = 'login';
 
 const getAppBaseUrl = (): string => {
