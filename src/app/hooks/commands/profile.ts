@@ -1,6 +1,5 @@
 import { EventTimeline, EventType, MatrixError } from '$types/matrix-sdk';
 import { setOwnRoomMemberProfile } from '$utils/roomMemberProfile';
-import { parsePronounsInput } from '$utils/pronouns';
 import { sendFeedback } from '$utils/sendFeedbackToUser';
 import { CustomStateEvent } from '$types/matrix/room';
 import { ErrorCode } from '../../cs-errorcode';
@@ -299,98 +298,6 @@ export const createProfileCommands = (ctx: CommandContext): Partial<CommandRecor
               room,
               userId
             );
-          }
-        }
-      },
-    },
-    [Command.Pronoun]: {
-      name: Command.Pronoun,
-      description:
-        'Set your pronouns for this room. Example: /pronoun "en:they/them, de:sie/ihr" | /pronoun reset',
-      exe: async (payload) => {
-        const match = payload.trim().match(/^"(.*)"$/);
-        const rawInput = match ? (match[1] ?? '').trim() : payload.trim();
-        const userId = mx.getSafeUserId();
-
-        try {
-          if (['reset', 'clear', ''].includes(rawInput.toLowerCase())) {
-            await mx.sendStateEvent(
-              room.roomId,
-              CustomStateEvent.RoomCosmeticsPronouns,
-              {},
-              userId
-            );
-            sendFeedback('Room pronouns have been reset.', room, userId);
-            return;
-          }
-
-          const pronounsArray = parsePronounsInput(rawInput);
-
-          await mx.sendStateEvent(
-            room.roomId,
-            CustomStateEvent.RoomCosmeticsPronouns,
-            { pronouns: pronounsArray },
-            userId
-          );
-
-          const feedbackString = pronounsArray
-            .map((p) => (p.language ? `for ${p.language} "${p.summary}" was set` : p.summary))
-            .join(', ');
-
-          sendFeedback(`Room pronouns set: ${feedbackString}`, room, userId);
-        } catch (e: unknown) {
-          if (e instanceof MatrixError && e.errcode === ErrorCode.M_FORBIDDEN) {
-            sendFeedback('Permission Denied. Could not update room pronouns.', room, userId);
-          }
-        }
-      },
-    },
-    [Command.SPronoun]: {
-      name: Command.SPronoun,
-      description:
-        'Set your pronouns for this space. Example: /spronoun "en:they/them, de:sie/ihr" | /spronoun reset',
-      exe: async (payload) => {
-        const match = payload.trim().match(/^"(.*)"$/);
-        const rawInput = match ? (match[1] ?? '').trim() : payload.trim();
-        const userId = mx.getSafeUserId();
-
-        const parents = room
-          .getLiveTimeline()
-          .getState(EventTimeline.FORWARDS)
-          ?.getStateEvents(EventType.SpaceParent);
-
-        const targetSpaceId =
-          parents && parents.length > 0 ? parents[0]!.getStateKey() : room.roomId;
-
-        try {
-          if (['reset', 'clear', ''].includes(rawInput.toLowerCase())) {
-            await mx.sendStateEvent(
-              targetSpaceId as string,
-              CustomStateEvent.RoomCosmeticsPronouns,
-              {},
-              userId
-            );
-            sendFeedback('Global space pronouns reset.', room, userId);
-            return;
-          }
-
-          const pronounsArray = parsePronounsInput(rawInput);
-
-          await mx.sendStateEvent(
-            targetSpaceId as string,
-            CustomStateEvent.RoomCosmeticsPronouns,
-            { pronouns: pronounsArray },
-            userId
-          );
-
-          const feedbackString = pronounsArray
-            .map((p) => (p.language ? `for ${p.language} "${p.summary}" was set` : p.summary))
-            .join(', ');
-
-          sendFeedback(`Global space pronouns set: ${feedbackString}`, room, userId);
-        } catch (e: unknown) {
-          if (e instanceof MatrixError && e.errcode === ErrorCode.M_FORBIDDEN) {
-            sendFeedback('Permission Denied. Could not update space pronouns.', room, userId);
           }
         }
       },
