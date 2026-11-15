@@ -1,4 +1,5 @@
 import { SequenceCard, SequenceCardStyle } from '$components/sequence-card';
+import type { PronounSet } from '$utils/pronouns';
 import { nanoid } from 'nanoid';
 import { Box, Button, Text, Avatar, config, IconButton, Input, toRem, Spinner, color } from 'folds';
 import { menuIcon, Trash, X } from '$components/icons/phosphor';
@@ -18,8 +19,6 @@ import {
   deletePerMessageProfile,
   renamePerMessageProfile,
 } from '$hooks/usePerMessageProfile';
-import type { PronounSet } from '$utils/pronouns';
-import { parsePronounsStringToPronounsSetArray } from '$utils/pronouns';
 import { SettingTile } from '$components/setting-tile';
 import { AsyncStatus, useAsyncCallback } from '$hooks/useAsyncCallback';
 import { NameColorEditor } from '../account/NameColorEditor';
@@ -177,8 +176,8 @@ export function PerMessageProfileEditor({
   const [newId, setNewId] = useState(profileId);
 
   // Pronouns
-  const [currentPronouns, setCurrentPronouns] = useState(pronouns);
-  const [newPronouns, setNewPronouns] = useState(pronouns);
+  const [currentPronouns] = useState(pronouns);
+  const [newPronouns] = useState(pronouns);
   const currentPronounsString = useMemo(
     () =>
       Array.isArray(currentPronouns)
@@ -186,7 +185,7 @@ export function PerMessageProfileEditor({
         : '',
     [currentPronouns]
   );
-  const [newPronounsString, setNewPronounsString] = useState(() => {
+  const [newPronounsString] = useState(() => {
     const pronounsString = Array.isArray(newPronouns)
       ? newPronouns.map((p) => `${p.language ? `${p.language}:` : ''}${p.summary}`).join(', ')
       : '';
@@ -308,13 +307,6 @@ export function PerMessageProfileEditor({
     setNewDisplayName(currentDisplayName ?? '');
   }, [currentDisplayName]);
 
-  /**
-   * handler for resetting the pronouns
-   */
-  const handlePronounsReset = useCallback(() => {
-    setNewPronouns(currentPronouns);
-    setNewPronounsString(currentPronounsString);
-  }, [currentPronouns, currentPronounsString]);
 
   /**
    * persisting the data :3
@@ -334,7 +326,6 @@ export function PerMessageProfileEditor({
       });
 
       setCurrentDisplayName(newDisplayName);
-      setCurrentPronouns(newPronouns);
       setCurrentNameColorLight(newNameColorLight);
       setCurrentNameColorDark(newNameColorDark);
       setCurrentShorthands(newShorthands);
@@ -363,7 +354,6 @@ export function PerMessageProfileEditor({
     useCallback(async () => {
       await deletePerMessageProfile(mx, currentId);
       setCurrentDisplayName('');
-      setCurrentPronouns([]);
       if (onDelete) onDelete(currentId);
     }, [mx, currentId, onDelete])
   );
@@ -372,10 +362,6 @@ export function PerMessageProfileEditor({
     setNewId(e.target.value);
   }, []);
 
-  const handlePronounsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewPronounsString(e.target.value);
-    return setNewPronouns(parsePronounsStringToPronounsSetArray(e.target.value));
-  }, []);
 
   return (
     <Box
@@ -514,52 +500,6 @@ export function PerMessageProfileEditor({
         </SettingTile>
       </SequenceCard>
 
-      <SequenceCard
-        className={SequenceCardStyle}
-        variant="SurfaceVariant"
-        direction="Column"
-        gap="400"
-      >
-        <SettingTile
-          title="Pronouns"
-          description="Separate sets with commas"
-          focusId={`pronounsInput-${profileId}`}
-          after={
-            <Input
-              required
-              name="pronounsInput"
-              id={`pronounsInput-${profileId}`}
-              value={newPronounsString}
-              onChange={handlePronounsChange}
-              variant="Secondary"
-              radii="300"
-              style={{
-                paddingRight: config.space.S200,
-                width: '232px',
-              }}
-              placeholder="Add pronouns..."
-              readOnly={changingDisplayName || disableSetDisplayname}
-              aria-label={`Pronouns for ${profileId}`}
-              title={`Pronouns for ${profileId}`}
-              after={
-                newPronounsString !== currentPronounsString && (
-                  <IconButton
-                    type="reset"
-                    onClick={handlePronounsReset}
-                    size="300"
-                    radii="300"
-                    variant="Secondary"
-                    aria-label="Reset pronouns"
-                    title="Reset pronouns"
-                  >
-                    {menuIcon(X)}
-                  </IconButton>
-                )
-              }
-            />
-          }
-        ></SettingTile>
-      </SequenceCard>
 
       <SequenceCard
         className={SequenceCardStyle}

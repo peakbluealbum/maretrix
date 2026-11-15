@@ -271,7 +271,6 @@ export function Cosmetics({ requestBack, requestClose }: CosmeticsProps) {
 
   const getLevel = (eventType: string) => (powerLevels.events ?? {})?.[eventType] ?? 50;
 
-  const canHaveRoomPronouns = getLevel(CustomStateEvent.RoomCosmeticsPronouns) === 0;
   const canHaveRoomFont = getLevel(CustomStateEvent.RoomCosmeticsFont) === 0;
 
   const handleToggle = useCallback(
@@ -390,27 +389,6 @@ export function Cosmetics({ requestBack, requestClose }: CosmeticsProps) {
                   direction="Column"
                   gap="400"
                 ></SequenceCard>
-                <SequenceCard
-                  className={SequenceCardStyle}
-                  variant="SurfaceVariant"
-                  direction="Column"
-                  gap="400"
-                >
-                  <SettingTile
-                    title={isSpace ? 'Space-Wide Pronouns' : 'Room Pronouns'}
-                    description={`Allow everyone to set pronouns that apply in ${isSpace ? "all the space's rooms" : 'this room'}.`}
-                    after={
-                      <Switch
-                        variant="Primary"
-                        value={canHaveRoomPronouns}
-                        onChange={(enabled) =>
-                          handleToggle(CustomStateEvent.RoomCosmeticsPronouns, enabled)
-                        }
-                        disabled={!canEditPermissions}
-                      />
-                    }
-                  />
-                </SequenceCard>
                 <SequenceCard
                   className={SequenceCardStyle}
                   variant="SurfaceVariant"
