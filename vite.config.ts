@@ -15,22 +15,14 @@ import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
-import buildConfig from './build.config';
+import buildConfig, { tauriSsoScheme } from './build.config';
 
 // The committed config.json is an empty template (no homeserver, no provider keys), so the
 // public repo carries no credentials. A build that needs the real values points this at a
 // merged copy instead of mutating the tracked file:
 //   MARETRIX_CONFIG_PATH=/tmp/…/config.json pnpm tauri build
 // scripts/build-macos-local.sh does exactly that. Unset, behaviour is unchanged (CI path).
-/**
- * The custom URL scheme the app actually registers, taken from the Tauri config rather than repeated
- * in source. `SSOTauri` builds its redirect from this, so the scheme and the registration cannot
- * drift apart — the failure mode that made native SSO logins dead-end on a scheme nothing handled.
- */
-const tauriConfig = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, 'src-tauri/tauri.conf.json'), 'utf8')
-) as { plugins?: { 'deep-link'?: { desktop?: { schemes?: string[] } } } };
-const tauriSsoScheme = tauriConfig.plugins?.['deep-link']?.desktop?.schemes?.[0] ?? 'maretrix';
+
 
 const configSource = process.env.MARETRIX_CONFIG_PATH ?? path.resolve(__dirname, 'config.json');
 const configText = fs.readFileSync(configSource, 'utf8');
