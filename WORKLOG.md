@@ -216,6 +216,14 @@
    `git log --all -S "TAURI_SSO_PROTOCOL = 'maretrix:'"` finds no commit. **Tag gate:** the tree must
    read `'maretrix:'` at the cut, or the Native bullet in `CHANGELOG.md` and the `VERSIONS.md` mention
    are struck in the same commit as the bump. The release never advertises code it does not contain.
+8. **Android attach silently drops gallery picks — 1.2.0, filed from recon 2026-11-15.** Picking a
+   photo through the in-app attach sheet closes the picker and attaches nothing, with no message;
+   sharing from Google Photos into the app works. `nativeFilePicker.ts` has three silent-drop points
+   on the Android path: `metadata.type !== 'File'` returns `undefined` without a word,
+   `readFile(uri)` failures only reach an optional `onFileFailure` the caller may not pass, and the
+   raw picker result is never logged. Desired shape: stop gating on `metadata.type`, surface every
+   failure through `onFileFailure`, and log the picker's raw result. Not a one-line fix — which
+   branch fires is unconfirmed — so a device log promotes it. Target: 1.2.0.
 8. **Pagination rejects are thread classification — re-measure after the plain path.** The 15
    `addEventToTimeline: Ignoring event=…` lines in the 2026-11-11 capture are `canContain` rejections
    (`event-timeline-set.js:536`): `eventShouldLiveIn` says a thread reply does not belong in the
