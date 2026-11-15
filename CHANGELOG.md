@@ -56,7 +56,7 @@ Fix release for the iOS timeline, plus the desktop and web fixes that came out o
 
 ### Android
 
-- **The APK is named like every other artifact** — `Maretrix-<version>-android-<abi>.apk`, instead of
+- **The APK is named like every other artifact** — `Maretrix-<version>.apk`, instead of
   the Gradle default.
 
 ### Under the hood
