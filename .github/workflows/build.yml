@@ -565,7 +565,9 @@ jobs:
         id: apk
         run: |
           set -euo pipefail
-          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
+          # Prefer the release-signed build; fall back only if the toolchain emitted no release variant.
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -path '*/release/*.apk' | head -1)
+          [ -n "$APK" ] || APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
           test -n "$APK" || { echo "no apk produced"; exit 1; }
           # One universal APK (--apk, no --split-per-abi), named like every other artifact.
           VERSION=$(node -p "require('./package.json').version")
