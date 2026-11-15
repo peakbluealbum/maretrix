@@ -566,8 +566,10 @@ jobs:
         run: |
           set -euo pipefail
           # Prefer the release-signed build; fall back only if the toolchain emitted no release variant.
-          APK=$(find src-tauri/gen/android/app/build/outputs/apk -path '*/release/*.apk' | head -1)
-          [ -n "$APK" ] || APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
+          # `-print -quit` rather than a pipe to head: under pipefail, head closing early makes find
+          # exit 141 and `set -e` aborts the step — exactly when more than one APK exists.
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -path '*/release/*.apk' -print -quit)
+          [ -n "$APK" ] || APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -print -quit)
           test -n "$APK" || { echo "no apk produced"; exit 1; }
           # One universal APK (--apk, no --split-per-abi), named like every other artifact.
           VERSION=$(node -p "require('./package.json').version")
