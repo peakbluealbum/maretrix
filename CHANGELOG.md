@@ -25,6 +25,9 @@ Fix release for the iOS timeline, plus the desktop and web fixes that came out o
   so reaching the end of a room on a trackpad or touchscreen leaves the rest of the app still.
 - **Swiping back to the channel list no longer flashes white.** The room surface is painted while it
   moves, and the room is promoted to its own compositing layer only for the duration of the gesture.
+- **The last pronoun controls are gone.** The room and space pronouns toggle in room settings →
+  cosmetics, the `/pronoun` and `/spronoun` commands, and the pronoun field in the per-message
+  profile editor are removed. Room pronoun state already set is left alone; nothing renders it.
 
 ### Web app
 
@@ -44,6 +47,17 @@ Fix release for the iOS timeline, plus the desktop and web fixes that came out o
 
 - **One DMG for both architectures.** The macOS build defaults to a universal binary; a host-arch
   build had shipped before while the updater advertised both darwin architectures against it.
+
+### Windows
+
+- **The app and the installer use the current icon.** The shipped `.ico` was a 100%-opaque navy tile
+  carrying the old red mark, so Windows showed a solid square where every other platform shows the
+  glyph. It is rebuilt from the current artwork, transparent at rest, with the full size ladder.
+
+### Android
+
+- **The APK is named like every other artifact** — `Maretrix-<version>-android-<abi>.apk`, instead of
+  the Gradle default.
 
 ### Under the hood
 

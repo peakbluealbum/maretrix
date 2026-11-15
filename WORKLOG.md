@@ -2,6 +2,10 @@
 
 ## Settled
 
+- **Release docs are in the tree** (`e11da16`, HEAD `8e6eb50`): `CHANGELOG.md` carries the 1.1.1 section
+  (iOS / every platform / web app / native / macOS / under the hood) and `VERSIONS.md` names the SSO fix.
+  Worktree clean, level with origin. The six-file bump is still unapplied — `git apply --check
+  ~/worklogs/maretrix-1.1.1-bump.patch` passes at `8e6eb50`, so it lands at the cut, not before it.
 - **1.1.0 shipped.** Native clients (macOS, Windows NSIS, Linux), Linux installable, rc1 → rc2 →
   1.1.0 collapsed into one changelog entry. See `CHANGELOG.md`.
 - **virtua 0.50.1 → 0.54.2** (`24283aa`). `pnpm why virtua` → one version, `0.54.2`. Lockfile and
@@ -42,15 +46,20 @@
    scenario — About version, deploy stamp, rendered range (`rend:[first,last]` and `now.rows` from
    `__maretrixTL.report()`), RO-loop error yes/no. Clear the sampler between scenarios.
 
+   **Canary for this table: `836ff18`**, deployed `2026-11-12T13:01:19Z`, chunk `page-Dx_ugLQP.js`;
+   staging re-checked 2026-11-12 — the edge serves that chunk and it returns `200 text/javascript`.
+   About must read `v1.1.1-dev`; `v1.1.0` voids the row. The pass target moves to the final versioned
+   candidate once SSO and the three 2026-11-13 fixes land — `836ff18` is the canary only until then.
+
    | # | Scenario | About | Deploy | rendered range | RO error | Verdict |
    |---|---|---|---|---|---|---|
-   | 1 | cold open a room | | 05:16:21Z | | | |
-   | 2 | switch rooms repeatedly | | 05:16:21Z | | | |
-   | 3 | leave and return | | 05:16:21Z | | | |
-   | 4 | empty room that grows | | 05:16:21Z | | | |
-   | 5 | fling while scrolled up | | 05:16:21Z | | | |
-   | 6 | live message while scrolled up | | 05:16:21Z | | | |
-   | 7 | PWA vs native app | | 05:16:21Z | | | |
+   | 1 | cold open a room | | 13:01:19Z | | | |
+   | 2 | switch rooms repeatedly | | 13:01:19Z | | | |
+   | 3 | leave and return | | 13:01:19Z | | | |
+   | 4 | empty room that grows | | 13:01:19Z | | | |
+   | 5 | fling while scrolled up | | 13:01:19Z | | | |
+   | 6 | live message while scrolled up | | 13:01:19Z | | | |
+   | 7 | PWA vs native app | | 13:01:19Z | | | |
 
    Done when every row is filled and a device pass says the iOS timeline is fixed. There is no
    "not fixed, defer" branch: the line stays open until that pass exists (see Decisions).
@@ -202,8 +211,11 @@
    `com.daiwascarlet.maretrix` (`tauri.conf.json` deep-link, AndroidManifest intent-filter). The
    browser redirect therefore cannot reach the app, and a callback that did arrive would be dropped
    as a protocol mismatch. `SSOTauri.test.ts` asserts the broken scheme, which is why the suite never
-   caught it. User-visible: **"Sign in with SSO from a native app dead-ends."** Target: 1.1.1 as
-   platform breakage (one constant + the test assertions), otherwise 1.2.0 — owner's call.
+   caught it. User-visible: **"Sign in with SSO from a native app dead-ends."** Owner's call
+   (2026-11-11): **1.1.1, as its own commit** — platform breakage. Not landed as of `8e6eb50`:
+   `git log --all -S "TAURI_SSO_PROTOCOL = 'maretrix:'"` finds no commit. **Tag gate:** the tree must
+   read `'maretrix:'` at the cut, or the Native bullet in `CHANGELOG.md` and the `VERSIONS.md` mention
+   are struck in the same commit as the bump. The release never advertises code it does not contain.
 8. **Pagination rejects are thread classification — re-measure after the plain path.** The 15
    `addEventToTimeline: Ignoring event=…` lines in the 2026-11-11 capture are `canContain` rejections
    (`event-timeline-set.js:536`): `eventShouldLiveIn` says a thread reply does not belong in the
@@ -218,19 +230,32 @@
    after the plain path: forward requests that persist once `scrollHeight` is real are a bug; if they
    stop, this item closes and the reducer proceeds.
 
-9. **Release office (pm) — changelog and bump are staged, nothing committed.** `CHANGELOG.md` carries
-   the 1.1.1 section and `VERSIONS.md` names the SSO fix; both are uncommitted in `~/maretrix-1.1.1`
-   on purpose (pm does not commit). The six-file bump is a ready patch at
-   `~/worklogs/maretrix-1.1.1-bump.patch`, checked with `git apply --check` against `94d358e`; it is
-   not applied because the version string would then change in any build made from this worktree. The
-   changelog section is a draft: at tag time, strike any bullet the device pass does not confirm.
-
-10. **Non-iOS timeline smoke before the tag — the pass covers the plain path only.** `virtua` moved
+9. **Non-iOS timeline smoke before the tag — the pass covers the plain path only.** `virtua` moved
    0.50.1 → 0.54.2 on every platform that still virtualises, and no device has run it: the 7-scenario
    pass is iOS/plain, and a green jsdom suite says nothing about layout. Done when one busy room is
    scrolled to the top and back on the macOS build (and the Linux build if it is at hand) with no
    blank range, no stuck scroll and no console loop. Same session can confirm the two shared-layout
    bullets in the changelog (overscroll containment, swipe flash).
+
+10. **Three release fixes the owner found (2026-11-13) — all in 1.1.1, each its own commit.** None
+   touches the timeline, so the pass evidence survives them; all three land *before* the next deploy,
+   so the pass runs on the final candidate rather than on `836ff18`.
+   a. **Pronoun controls.** The room/space cosmetics toggle (`Cosmetics.tsx:400`), `/pronoun` and
+      `/spronoun` (`commands/profile.ts:306`, `:348`) and the per-message pronoun field
+      (`PerMessageProfileEditor.tsx:524`). Keep the state-event readers — they render nothing.
+      Done when `git grep -in pronoun src -- '*.tsx'` leaves no label or input, and room settings
+      renders without the group.
+   b. **Windows icon.** `src-tauri/icons/icon.ico` is a 100%-opaque navy tile with the old mark, not
+      the transparent glyph (verified 2026-11-13: mean frame difference ~50 against `icon.png`, ~99%
+      of pixels over threshold, alpha bbox covers the whole 256 frame). Rebuild from the current
+      artwork with transparency and the full ladder; done when the 256 frame matches `icon.png` and the
+      NSIS installer and exe carry it.
+   c. **Android APK name.** CI uploads the Gradle path unchanged (`build.yml:566-579`). Rename to
+      `Maretrix-<version>-android-<abi>.apk` for the workflow artifact and the release asset; done when
+      a tagged build's release assets carry that name.
+
+   Four code changes are outstanding in total: **this item's three, plus item 7 (SSO)**. Any digest that
+   lists only these three is incomplete — the SSO fix has already dropped out of one summary.
 
 ## Blocked
 
