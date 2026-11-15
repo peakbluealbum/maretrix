@@ -561,11 +561,22 @@ jobs:
           fi
       - name: Build APK
         run: pnpm tauri:wry android build --apk
+      - name: Name the APK
+        id: apk
+        run: |
+          set -euo pipefail
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
+          test -n "$APK" || { echo "no apk produced"; exit 1; }
+          # One universal APK (--apk, no --split-per-abi), named like every other artifact.
+          VERSION=$(node -p "require('./package.json').version")
+          cp "$APK" "Maretrix-${VERSION}.apk"
+          echo "path=Maretrix-${VERSION}.apk" >> "$GITHUB_OUTPUT"
+          echo "built Maretrix-${VERSION}.apk from $APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: maretrix-android
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-          if-no-files-found: warn
+          name: Maretrix-apk
+          path: Maretrix-*.apk
+          if-no-files-found: error
       # Built with `tauri android build`, not tauri-action, so nothing attaches it
       # to a release. Do it explicitly on a tagged build.
       - name: Attach APK to release
@@ -573,9 +584,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
-          test -n "$APK" || { echo "no apk produced"; exit 1; }
-          gh release upload "${{ github.ref_name }}" "$APK" --clobber
+          gh release upload "${{ github.ref_name }}" "${{ steps.apk.outputs.path }}" --clobber
 
   # Manual dispatch only. An unsigned IPA that the user re-signs with their own
   # Apple ID: no paid account, so no APNs and no App Group capability. On iOS the
