@@ -240,8 +240,19 @@ export function dump(): string {
   }
 }
 
+/** Callbacks run when a capture is cleared, so component-side counters reset with the buffer. */
+const clearHandlers = new Set<() => void>();
+
+export function onClear(handler: () => void): () => void {
+  clearHandlers.add(handler);
+  return () => {
+    clearHandlers.delete(handler);
+  };
+}
+
 export function clear() {
   buffer.length = 0;
+  clearHandlers.forEach((handler) => handler());
   try {
     window.localStorage.removeItem(STORAGE_KEY);
   } catch {

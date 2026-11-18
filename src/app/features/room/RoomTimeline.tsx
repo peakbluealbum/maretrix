@@ -1948,7 +1948,7 @@ export function RoomTimeline({
       if (applied) el.scrollTop += delta;
       traceResize({
         ...base,
-        reason: 'applied',
+        reason: applied ? 'applied' : 'below-threshold',
         rowId: previous.topRowId,
         rowTop: Math.round(row.getBoundingClientRect().top),
         prevScrollTop: Math.round(previous.scrollTop),
@@ -1958,8 +1958,14 @@ export function RoomTimeline({
       plainTopRef.current = snapshotPlainTop(el);
     });
     observer.observe(content);
+    // `clear()` empties the buffer but cannot reach a component ref, so the cap has to be reset
+    // from here or the tracer is spent before the gesture it exists to record.
+    const unregisterClear = timelineDebug.onClear(() => {
+      plainResizeRef.current = { key: '', count: 0 };
+    });
     return () => {
       observer.disconnect();
+      unregisterClear();
     };
   }, [plainTimeline, debugCtx]);
 
