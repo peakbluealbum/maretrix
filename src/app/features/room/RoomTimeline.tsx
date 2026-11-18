@@ -1724,6 +1724,7 @@ export function RoomTimeline({
   const plainFillWaitRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
   const plainPinFrameRef = useRef<number | undefined>(undefined);
   const plainTopRef = useRef<PlainTopSnapshot>({ clientHeight: 0, scrollTop: 0 });
+  const plainResizeRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
   /**
    * Re-pin to the bottom for a few frames.
    *
@@ -1893,6 +1894,15 @@ export function RoomTimeline({
     const content = scroller?.firstElementChild as HTMLElement | null;
     if (!scroller || !content) return undefined;
 
+    /** Transition-only, capped: the sampler writes into a 400-record ring that report() reads. */
+    const traceResize = (record: Record<string, unknown>) => {
+      const key = JSON.stringify(record);
+      const state = plainResizeRef.current;
+      if (state.key === key || state.count >= 12) return;
+      plainResizeRef.current = { key, count: state.count + 1 };
+      timelineDebug.note('plain-resize', record, null, messageListRef.current, debugCtx());
+    };
+
     const observer = new ResizeObserver(() => {
       // Applied inline: writing `scrollTop` resizes nothing, so it cannot feed this observer, and
       // deferring to a frame shows the reader a visible shift on a 1,200 px growth. ResizeObserver
@@ -1901,15 +1911,23 @@ export function RoomTimeline({
       if (!el) return;
 
       const previous = plainTopRef.current;
+      const base = {
+        scrollTop: Math.round(el.scrollTop),
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+      };
+
       // The inner column carries `min-height: 100%`, so it also resizes when the *viewport* changes
       // (composer, keyboard, rotation). Correcting for those would scroll the timeline for a
       // viewport change; re-snapshot and leave scrollTop alone.
       if (el.clientHeight !== previous.clientHeight) {
+        traceResize({ ...base, reason: 'viewport', delta: 0, applied: false });
         plainTopRef.current = snapshotPlainTop(el);
         return;
       }
       // The bottom latch owns this state and the two would fight.
       if (atBottomRef.current) {
+        traceResize({ ...base, reason: 'atBottom', delta: 0, applied: false });
         plainTopRef.current = snapshotPlainTop(el);
         return;
       }
@@ -1917,6 +1935,7 @@ export function RoomTimeline({
         ? el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(previous.topRowId)}"]`)
         : null;
       if (!row || previous.topRowViewport === undefined) {
+        traceResize({ ...base, reason: 'noRow', delta: 0, applied: false });
         plainTopRef.current = snapshotPlainTop(el);
         return;
       }
@@ -1925,15 +1944,24 @@ export function RoomTimeline({
         { scrollTop: previous.scrollTop, topRowViewport: previous.topRowViewport },
         { scrollTop: el.scrollTop, topRowTop: row.getBoundingClientRect().top }
       );
-      if (Math.abs(delta) >= 1) el.scrollTop += delta;
+      const applied = Math.abs(delta) >= 1;
+      if (applied) el.scrollTop += delta;
+      traceResize({
+        ...base,
+        reason: 'applied',
+        rowId: previous.topRowId,
+        rowTop: Math.round(row.getBoundingClientRect().top),
+        prevScrollTop: Math.round(previous.scrollTop),
+        delta: Math.round(delta),
+        applied,
+      });
       plainTopRef.current = snapshotPlainTop(el);
     });
-
     observer.observe(content);
     return () => {
       observer.disconnect();
     };
-  }, [plainTimeline]);
+  }, [plainTimeline, debugCtx]);
 
   /**
    * Mount-time fill.
