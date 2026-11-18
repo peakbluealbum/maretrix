@@ -80,6 +80,11 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-18 — `16762ae` on staging** (`12:16:37Z`, chunk `page-CVs9SOBe.js`): `plain-resize` instrumentation
+   with `onClear` so the twelve-record cap resets with the buffer, and explicit reasons
+   (`viewport`/`atBottom`/`noRow`/`applied`/`below-threshold`). Capture decides whether the late-layout
+   correction runs at all or bails on a guard.
+
    **2026-11-12 — `836ff18` on staging** (`13:01:19Z`, chunk `page-Dx_ugLQP.js`): the late-layout
    correction subtracts the reader's scroll delta since the snapshot, so finger movement cancels and only
    content growth produces a delta — the intent guard is gone (a touchmove at 60 Hz kept it from ever
@@ -212,18 +217,13 @@
    browser redirect therefore cannot reach the app, and a callback that did arrive would be dropped
    as a protocol mismatch. `SSOTauri.test.ts` asserts the broken scheme, which is why the suite never
    caught it. User-visible: **"Sign in with SSO from a native app dead-ends."** Owner's call
-   (2026-11-11): **1.1.1, as its own commit** — platform breakage. Not landed as of `8e6eb50`:
-   `git log --all -S "TAURI_SSO_PROTOCOL = 'maretrix:'"` finds no commit. **Tag gate:** the tree must
-   read `'maretrix:'` at the cut, or the Native bullet in `CHANGELOG.md` and the `VERSIONS.md` mention
-   are struck in the same commit as the bump. The release never advertises code it does not contain.
-8. **Android attach silently drops gallery picks — 1.2.0, filed from recon 2026-11-15.** Picking a
-   photo through the in-app attach sheet closes the picker and attaches nothing, with no message;
-   sharing from Google Photos into the app works. `nativeFilePicker.ts` has three silent-drop points
-   on the Android path: `metadata.type !== 'File'` returns `undefined` without a word,
-   `readFile(uri)` failures only reach an optional `onFileFailure` the caller may not pass, and the
-   raw picker result is never logged. Desired shape: stop gating on `metadata.type`, surface every
-   failure through `onFileFailure`, and log the picker's raw result. Not a one-line fix — which
-   branch fires is unconfirmed — so a device log promotes it. Target: 1.2.0.
+   (2026-11-11): **1.1.1, as its own commit** — platform breakage. **Landed** (`03ebcc5`, `dc059a6`):
+   the scheme is read from `plugins.deep-link.desktop.schemes` in `tauri.conf.json` at build time, the
+   parser compares against the same constant, and `SSOTauri.test.ts` derives its expectation from that
+   file instead of hard-coding one. End-to-end stays unverified — see Blocked. **Tag gate:** the tree
+   must read `'maretrix:'` at the cut, or the Native bullet in `CHANGELOG.md` and the `VERSIONS.md`
+   mention are struck in the same commit as the bump. The release never advertises code it does not
+   contain.
 8. **Pagination rejects are thread classification — re-measure after the plain path.** The 15
    `addEventToTimeline: Ignoring event=…` lines in the 2026-11-11 capture are `canContain` rejections
    (`event-timeline-set.js:536`): `eventShouldLiveIn` says a thread reply does not belong in the
@@ -248,22 +248,31 @@
 10. **Three release fixes the owner found (2026-11-13) — all in 1.1.1, each its own commit.** None
    touches the timeline, so the pass evidence survives them; all three land *before* the next deploy,
    so the pass runs on the final candidate rather than on `836ff18`.
-   a. **Pronoun controls.** The room/space cosmetics toggle (`Cosmetics.tsx:400`), `/pronoun` and
-      `/spronoun` (`commands/profile.ts:306`, `:348`) and the per-message pronoun field
-      (`PerMessageProfileEditor.tsx:524`). Keep the state-event readers — they render nothing.
-      Done when `git grep -in pronoun src -- '*.tsx'` leaves no label or input, and room settings
-      renders without the group.
-   b. **Windows icon.** `src-tauri/icons/icon.ico` is a 100%-opaque navy tile with the old mark, not
-      the transparent glyph (verified 2026-11-13: mean frame difference ~50 against `icon.png`, ~99%
-      of pixels over threshold, alpha bbox covers the whole 256 frame). Rebuild from the current
-      artwork with transparency and the full ladder; done when the 256 frame matches `icon.png` and the
-      NSIS installer and exe carry it.
-   c. **Android APK name.** CI uploads the Gradle path unchanged (`build.yml:566-579`). Rename to
-      `Maretrix-<version>-android-<abi>.apk` for the workflow artifact and the release asset; done when
-      a tagged build's release assets carry that name.
+   a. **Pronoun controls — landed** (`4114411`, `286f72a`). The toggle, `/pronoun`, `/spronoun` and the
+      per-message field are gone; `git grep -in pronoun src -- '*.tsx'` leaves no label, switch or input,
+      and the state-event readers are untouched (they render nothing).
+   b. **Windows icon — landed** (`ca816ed`, with `scripts/icons/build-windows-ico.py` committed so the
+      step is reproducible). Verified 2026-11-15: 7 frames (16→256), the 256 frame is pixel-identical to
+      `src-tauri/icons/source/icon_C_ember_glass_1024.png` (0 px over threshold) and all four corners are
+      alpha 0. `icon.png` was the wrong reference to compare against — it is the bare glyph, while
+      Windows gets the squircle. Not checkable here: the installer and exe rendering, which needs Windows.
+   c. **Android APK name — landed** (`8312904`, `917adca`, `758e36d`). One universal APK named
+      `Maretrix-<version>.apk`, not the Gradle default; the changelog bullet was corrected to match the
+      code. Unverified until one `workflow_dispatch` android run reads back the uploaded filename.
 
-   Four code changes are outstanding in total: **this item's three, plus item 7 (SSO)**. Any digest that
-   lists only these three is incomplete — the SSO fix has already dropped out of one summary.
+   **Still open from the batch:** `packaging/arch/.SRCINFO:25` — `pkgver = 1.1.1` but
+   `source = maretrix-v1.1.0.tar.gz::…/v1.1.0.tar.gz`. That file carries the tag **twice** and only the
+   `pkgver` was bumped, so an Arch package built from this tree would fetch the 1.1.0 tarball and ship it
+   as 1.1.1. This is the exact failure `VERSIONS.md` warns about; fix before the tag.
+
+11. **Android attach silently drops gallery picks — 1.2.0, filed from recon 2026-11-15.** Picking a
+   photo through the in-app attach sheet closes the picker and attaches nothing, with no message;
+   sharing from Google Photos into the app works. `nativeFilePicker.ts` has three silent-drop points
+   on the Android path: `metadata.type !== 'File'` returns `undefined` without a word, `readFile(uri)`
+   failures only reach an optional `onFileFailure` the caller may not pass, and the raw picker result
+   is never logged. Desired shape: stop gating on `metadata.type`, surface every failure through
+   `onFileFailure`, and log the picker's raw result. Not a one-line fix — which branch fires is
+   unconfirmed — so a device log promotes it. Target: 1.2.0.
 
 ## Blocked
 
