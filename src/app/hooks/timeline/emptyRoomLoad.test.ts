@@ -12,7 +12,7 @@ const base = {
 };
 
 describe('decideEmptyRoomLoad', () => {
-  it('anchors on the read marker when the room has none', () => {
+  it('anchors on the read marker only when there is no token', () => {
     expect(decideEmptyRoomLoad({ ...base, readUptoEventId: '$unread' })).toEqual({
       action: 'anchored',
     });
@@ -22,10 +22,10 @@ describe('decideEmptyRoomLoad', () => {
     expect(decideEmptyRoomLoad({ ...base, canPaginateBack: true })).toEqual({ action: 'paginate' });
   });
 
-  it('prefers the marker over the token', () => {
+  it('prefers pagination over the marker, because it keeps the room live', () => {
     expect(
       decideEmptyRoomLoad({ ...base, readUptoEventId: '$unread', canPaginateBack: true })
-    ).toEqual({ action: 'anchored' });
+    ).toEqual({ action: 'paginate' });
   });
 
   it('does nothing when a permalink owns the room', () => {

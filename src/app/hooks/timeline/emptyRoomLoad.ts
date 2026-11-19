@@ -34,7 +34,10 @@ export function decideEmptyRoomLoad(input: EmptyRoomLoadInput): EmptyRoomLoadDec
   if (input.seenEvents) return { action: 'skip', reason: 'timeline-reset' };
   if (input.attempted) return { action: 'skip', reason: 'already-attempted' };
   if (input.busy) return { action: 'skip', reason: 'busy' };
-  if (input.readUptoEventId) return { action: 'anchored' };
+  // Prefer pagination: it fills the *live* timeline in place, so new messages keep arriving and the
+  // existing unread scroll positions the reader. `loadEventTimeline` would park the room in a
+  // focused window that `useLiveTimelineRefresh` refuses to refresh into.
   if (input.canPaginateBack) return { action: 'paginate' };
+  if (input.readUptoEventId) return { action: 'anchored' };
   return { action: 'skip', reason: 'nothing-to-try' };
 }

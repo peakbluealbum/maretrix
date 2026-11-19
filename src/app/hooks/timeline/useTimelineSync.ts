@@ -809,9 +809,15 @@ export function useTimelineSync({
   // A cold start is a room that has never had events. A timeline that *empties* after having them is
   // a reset, and re-fetching there would fight the reset path.
   const seenEventsRef = useRef(false);
+  const roomIdRef = useRef(room.roomId);
 
   useEffect(() => {
     if (eventsLength > 0) seenEventsRef.current = true;
+    if (roomIdRef.current !== room.roomId) {
+      roomIdRef.current = room.roomId;
+      emptyRoomLoadRef.current = { attempted: false, skipKey: '' };
+      seenEventsRef.current = false;
+    }
     const decision = decideEmptyRoomLoad({
       seenEvents: seenEventsRef.current,
       eventId,
@@ -826,7 +832,12 @@ export function useTimelineSync({
       // Consume the attempt only when a path actually runs: `unreadInfo` may still be undefined on
       // the first render, and a guard burnt there would suppress the retry.
       emptyRoomLoadRef.current.attempted = true;
-      void loadEventTimeline(readUptoEventIdRef.current as string);
+      // The anchored load sets a focused window, and `useLiveTimelineRefresh` stands down while one
+      // is focused — so release it once the window has rendered, or the room loads history and then
+      // never receives another message until the user finds "jump to present".
+      void loadEventTimeline(readUptoEventIdRef.current as string).then(() => {
+        if (!eventId) focusLiveTimeline();
+      });
       return;
     }
     if (decision.action === 'paginate') {
@@ -858,6 +869,7 @@ export function useTimelineSync({
     unreadInfo,
     handleTimelinePagination,
     loadEventTimeline,
+    focusLiveTimeline,
     readUptoEventIdRef,
   ]);
 
