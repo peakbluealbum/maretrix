@@ -28,6 +28,8 @@ import {
   ThreadEvent,
 } from '$types/matrix-sdk';
 
+import { decideEmptyRoomLoad } from './emptyRoomLoad';
+import * as timelineDebug from '$features/room/timelineDebug';
 import { useAlive } from '$hooks/useAlive';
 import { useMatrixEvent } from '$hooks/useMatrixEvent';
 import { markAsRead } from '$utils/notifications';
@@ -790,6 +792,79 @@ export function useTimelineSync({
     setFocusedTimeline(undefined);
     applyLiveTimeline(getInitialTimeline(room).linkedTimelines);
   }, [applyLiveTimeline, room]);
+
+  /**
+   * Load a room that mounts with nothing in its timeline.
+   *
+   * The scroll path is the only thing that fetches history for a live timeline, and a room with no
+   * rows cannot scroll — on virtua the virtualiser's own mount scroll supplied that trigger, so the
+   * gap only became fatal when the plain list removed it. "Jump to unread" is the mechanism with
+   * evidence: `loadEventTimeline` fetches around an event id and needs no token from the live
+   * timeline, and the read marker lives in account data, so it exists in an empty room.
+   */
+  const emptyRoomLoadRef = useRef<{ attempted: boolean; skipKey: string }>({
+    attempted: false,
+    skipKey: '',
+  });
+  // A cold start is a room that has never had events. A timeline that *empties* after having them is
+  // a reset, and re-fetching there would fight the reset path.
+  const seenEventsRef = useRef(false);
+
+  useEffect(() => {
+    if (eventsLength > 0) seenEventsRef.current = true;
+    const decision = decideEmptyRoomLoad({
+      seenEvents: seenEventsRef.current,
+      eventId,
+      eventsLength,
+      attempted: emptyRoomLoadRef.current.attempted,
+      busy: focusedTimelineRef.current !== undefined || inFlightJumpRef.current !== undefined,
+      readUptoEventId: readUptoEventIdRef.current,
+      canPaginateBack,
+    });
+
+    if (decision.action === 'anchored') {
+      // Consume the attempt only when a path actually runs: `unreadInfo` may still be undefined on
+      // the first render, and a guard burnt there would suppress the retry.
+      emptyRoomLoadRef.current.attempted = true;
+      void loadEventTimeline(readUptoEventIdRef.current as string);
+      return;
+    }
+    if (decision.action === 'paginate') {
+      emptyRoomLoadRef.current.attempted = true;
+      void handleTimelinePagination(true);
+      return;
+    }
+
+    // Recorded once per distinct state, so a blank room is never ambiguous between "the load did
+    // not run" and "there was nothing to run".
+    if (decision.reason === 'nothing-to-try') {
+      const skipKey = `${eventsLength}:${canPaginateBack}`;
+      if (emptyRoomLoadRef.current.skipKey !== skipKey) {
+        emptyRoomLoadRef.current.skipKey = skipKey;
+        timelineDebug.note(
+          'room-load-skip',
+          { reason: decision.reason, eventsLength, canPaginateBack },
+          null,
+          null,
+          { roomId: room.roomId, spacer: 0, atBottom: false, isReady: false }
+        );
+      }
+    }
+  }, [
+    room.roomId,
+    eventId,
+    eventsLength,
+    canPaginateBack,
+    unreadInfo,
+    handleTimelinePagination,
+    loadEventTimeline,
+    readUptoEventIdRef,
+  ]);
+
+  useEffect(() => {
+    emptyRoomLoadRef.current = { attempted: false, skipKey: '' };
+    seenEventsRef.current = false;
+  }, [room.roomId]);
 
   return {
     timeline,
