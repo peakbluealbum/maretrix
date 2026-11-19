@@ -80,6 +80,13 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-19 — `e4ca4d2` on staging** (`13:17:26Z`, chunk `page-BF6StNOH.js`): a room that mounts with
+   zero events now issues one load — `paginate(true)` when a backward token exists (fills the live
+   timeline in place, keeps it refreshing), `loadEventTimeline(marker)` only when there is no token
+   (focused window with "jump to present"), and `room-load-skip` when neither exists. Permalinks and
+   in-flight jumps are excluded; the attempt is consumed only when a route runs; a timeline that empties
+   after having events is a reset, not a cold start. Device pass pending.
+
    **2026-11-18 — `16762ae` on staging** (`12:16:37Z`, chunk `page-CVs9SOBe.js`): `plain-resize` instrumentation
    with `onClear` so the twelve-record cap resets with the buffer, and explicit reasons
    (`viewport`/`atBottom`/`noRow`/`applied`/`below-threshold`). Capture decides whether the late-layout
