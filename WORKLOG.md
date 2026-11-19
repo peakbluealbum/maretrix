@@ -80,6 +80,11 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-19 — `78fceca` on staging** (`14:03:50Z`, chunk `page-BIU6vM2_.js`): the cold-start retry is an
+   action (`attemptEmptyRoomLoad`) called from the mount effect, from a refresh that leaves an attempted
+   room empty, and from the pagination error path once per room after a 2 s settle — flags alone were read
+   by nothing. Every skip reason is recorded. Device pass pending.
+
    **2026-11-19 — `e4ca4d2` on staging** (`13:17:26Z`, chunk `page-BF6StNOH.js`): a room that mounts with
    zero events now issues one load — `paginate(true)` when a backward token exists (fills the live
    timeline in place, keeps it refreshing), `loadEventTimeline(marker)` only when there is no token
