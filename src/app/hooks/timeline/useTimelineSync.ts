@@ -304,6 +304,13 @@ const useTimelinePagination = (
   return { paginate, backwardStatus, forwardStatus, backwardError, forwardError };
 };
 
+type ArrivalObservation = {
+  eventId: string | undefined;
+  isRoomTimeline: boolean;
+  isDisplayedEdit: boolean;
+  timeline?: EventTimeline;
+};
+
 const useLiveEventArrive = (
   room: Room,
   onArrive: (
@@ -311,10 +318,13 @@ const useLiveEventArrive = (
     isLive: boolean,
     timeline?: EventTimeline,
     prepended?: boolean
-  ) => void
+  ) => void,
+  onObserve?: (observation: ArrivalObservation) => void
 ) => {
   const onArriveRef = useRef(onArrive);
   onArriveRef.current = onArrive;
+  const onObserveRef = useRef(onObserve);
+  onObserveRef.current = onObserve;
 
   useEffect(() => {
     const handleTimelineEvent: EventTimelineSetHandlerMap[RoomEvent.Timeline] = (
@@ -329,6 +339,12 @@ const useLiveEventArrive = (
       const isRoomTimeline = data.timeline?.getTimelineSet() === room.getUnfilteredTimelineSet();
       const isDisplayedEdit =
         mEvent.getRelation?.()?.rel_type === RelationType.Replace && !isRoomTimeline;
+      onObserveRef.current?.({
+        eventId: mEvent.getId(),
+        isRoomTimeline,
+        isDisplayedEdit,
+        timeline: data.timeline,
+      });
       if (!isRoomTimeline && !isDisplayedEdit) return;
 
       onArriveRef.current(
@@ -665,6 +681,7 @@ export function useTimelineSync({
     [room]
   );
 
+  const arrivalTraceRef = useRef(0);
   useLiveEventArrive(
     room,
     useCallback(
@@ -732,7 +749,27 @@ export function useTimelineSync({
         redactInFocusedWindow,
         onReturnToLive,
       ]
-    )
+    ),
+    // Temporary: names whether the arrival path runs and whether it drops on identity. The theory
+    // that arrivals are filtered out is unproven until this says so.
+    (observation) => {
+      if (arrivalTraceRef.current >= 20) return;
+      arrivalTraceRef.current += 1;
+      timelineDebug.note(
+        'arrival-guard',
+        {
+          eventId: observation.eventId,
+          isRoomTimeline: observation.isRoomTimeline,
+          isDisplayedEdit: observation.isDisplayedEdit,
+          inSnapshot:
+            observation.timeline !== undefined &&
+            linkedTimelinesRef.current.includes(observation.timeline),
+        },
+        null,
+        null,
+        { roomId: room.roomId, spacer: 0, atBottom: false, isReady: false }
+      );
+    }
   );
 
   const handleLocalEchoUpdated = useCallback(
