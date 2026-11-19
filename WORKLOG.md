@@ -80,6 +80,10 @@
    `scrollHeight`; no virtua, no latch, no workaround stack. `?plainlist=0` forces the virtual path
    back for A/B, `?plainlist=1` forces the plain path anywhere. Awaiting the canary.
 
+   **2026-11-19 — `f543329` on staging** (`14:24:02Z`, chunk `page-CVCSQ_Cr.js`): records every
+   `RoomEvent.Timeline` emission with `isRoomTimeline`/`isDisplayedEdit`/`inSnapshot`, capped at twenty,
+   to settle whether subscription arrivals reach the renderer. Device pass pending.
+
    **2026-11-19 — `78fceca` on staging** (`14:03:50Z`, chunk `page-BIU6vM2_.js`): the cold-start retry is an
    action (`attemptEmptyRoomLoad`) called from the mount effect, from a refresh that leaves an attempted
    room empty, and from the pagination error path once per room after a 2 s settle — flags alone were read
