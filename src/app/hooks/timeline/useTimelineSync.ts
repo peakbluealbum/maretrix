@@ -598,6 +598,56 @@ export function useTimelineSync({
     focusLiveTimeline
   );
 
+  /**
+   * The cold-start load, as an action rather than a set of flags.
+   *
+   * Callers that merely clear `attempted` do nothing: nothing re-reads it until the effect's own
+   * dependencies change. So the retry paths call *this*, which re-decides and performs.
+   */
+  const attemptEmptyRoomLoad = useCallback((): boolean => {
+    const decision = decideEmptyRoomLoad({
+      eventId,
+      eventsLength,
+      attempted: emptyRoomLoadRef.current.attempted,
+      busy: focusedTimelineRef.current !== undefined || inFlightJumpRef.current !== undefined,
+      readUptoEventId: readUptoEventIdRef.current,
+      canPaginateBack,
+      seenEvents: seenEventsRef.current,
+    });
+
+    if (decision.action === 'anchored') {
+      emptyRoomLoadRef.current.attempted = true;
+      void loadEventTimeline(readUptoEventIdRef.current as string);
+      return true;
+    }
+    if (decision.action === 'paginate') {
+      emptyRoomLoadRef.current.attempted = true;
+      void handleTimelinePagination(true);
+      return true;
+    }
+
+    const skipKey = `${decision.reason}:${eventsLength}:${canPaginateBack}`;
+    if (emptyRoomLoadRef.current.skipKey !== skipKey) {
+      emptyRoomLoadRef.current.skipKey = skipKey;
+      timelineDebug.note(
+        'room-load-skip',
+        { reason: decision.reason, eventsLength, canPaginateBack },
+        null,
+        null,
+        { roomId: room.roomId, spacer: 0, atBottom: false, isReady: false }
+      );
+    }
+    return false;
+  }, [
+    eventId,
+    eventsLength,
+    canPaginateBack,
+    room.roomId,
+    loadEventTimeline,
+    handleTimelinePagination,
+    readUptoEventIdRef,
+  ]);
+
   const lastScrolledAtEventsLengthRef = useRef(eventsLength);
 
   const eventsLengthRef = useRef(eventsLength);
@@ -735,14 +785,18 @@ export function useTimelineSync({
         }
         // A refresh that leaves the room empty is a new epoch, not a done deal: clear the guards so
         // the mount-load can try once more rather than returning silently forever.
-        // Re-arm only a load that already ran: a room that never needed one (it had events at mount)
-        // must not start paginating because a reset briefly emptied it.
+        applyLiveTimeline(refreshedTimelines);
+        // A refresh that leaves an attempted room empty is a new epoch: perform the retry, do not
+        // just clear the guard — clearing alone is read by nothing until the deps move.
         if (getTimelinesEventsCount(refreshedTimelines) === 0 && emptyRoomLoadRef.current.attempted) {
           emptyRoomLoadRef.current.attempted = false;
           emptyRoomLoadRef.current.skipKey = '';
           seenEventsRef.current = false;
+          if (emptyRoomRetryRef.current < 1) {
+            emptyRoomRetryRef.current += 1;
+            attemptEmptyRoomLoad();
+          }
         }
-        applyLiveTimeline(refreshedTimelines);
         if (eventId) {
           void loadEventTimeline(eventId);
           return;
@@ -753,7 +807,15 @@ export function useTimelineSync({
           scrollToBottom('instant');
         }
       },
-      [applyLiveTimeline, eventId, isAtBottomRef, loadEventTimeline, room, scrollToBottom]
+      [
+        applyLiveTimeline,
+        attemptEmptyRoomLoad,
+        eventId,
+        isAtBottomRef,
+        loadEventTimeline,
+        room,
+        scrollToBottom,
+      ]
     )
   );
 
@@ -819,66 +881,31 @@ export function useTimelineSync({
   // a reset, and re-fetching there would fight the reset path.
   const seenEventsRef = useRef(false);
   const roomIdRef = useRef(room.roomId);
+  // One recovery attempt per epoch: a persistent failure must not retry in a loop.
+  const emptyRoomRetryRef = useRef(0);
 
   useEffect(() => {
-    if (eventsLength > 0) seenEventsRef.current = true;
     if (roomIdRef.current !== room.roomId) {
       roomIdRef.current = room.roomId;
       emptyRoomLoadRef.current = { attempted: false, skipKey: '' };
       seenEventsRef.current = false;
+      emptyRoomRetryRef.current = 0;
     }
-    const decision = decideEmptyRoomLoad({
-      seenEvents: seenEventsRef.current,
-      eventId,
-      eventsLength,
-      attempted: emptyRoomLoadRef.current.attempted,
-      busy: focusedTimelineRef.current !== undefined || inFlightJumpRef.current !== undefined,
-      readUptoEventId: readUptoEventIdRef.current,
-      canPaginateBack,
-    });
+    if (eventsLength > 0) seenEventsRef.current = true;
+    attemptEmptyRoomLoad();
+  }, [attemptEmptyRoomLoad, room.roomId, eventsLength]);
 
-    if (decision.action === 'anchored') {
-      // Consume the attempt only when a path actually runs: `unreadInfo` may still be undefined on
-      // the first render, and a guard burnt there would suppress the retry.
-      emptyRoomLoadRef.current.attempted = true;
-      // The anchored load sets a focused window, and `useLiveTimelineRefresh` stands down while one
-      // is focused. That state still shows the loaded history and offers "jump to present", which
-      // the UI knows how to leave; releasing it here would re-apply the *live* timeline — the empty
-      // one this fallback exists to escape — and discard the rows that just loaded.
-      void loadEventTimeline(readUptoEventIdRef.current as string);
-      return;
-    }
-    if (decision.action === 'paginate') {
-      emptyRoomLoadRef.current.attempted = true;
-      void handleTimelinePagination(true);
-      return;
-    }
-
-    // Every skip is recorded, transition-only, so a blank room names its own reason instead of
-    // leaving "the fix did not run" and "there was nothing to run" indistinguishable.
-    if (decision.action === 'skip') {
-      const skipKey = `${decision.reason}:${eventsLength}:${canPaginateBack}`;
-      if (emptyRoomLoadRef.current.skipKey !== skipKey) {
-        emptyRoomLoadRef.current.skipKey = skipKey;
-        timelineDebug.note(
-          'room-load-skip',
-          { reason: decision.reason, eventsLength, canPaginateBack },
-          null,
-          null,
-          { roomId: room.roomId, spacer: 0, atBottom: false, isReady: false }
-        );
-      }
-    }
-  }, [
-    room.roomId,
-    eventId,
-    eventsLength,
-    canPaginateBack,
-    unreadInfo,
-    handleTimelinePagination,
-    loadEventTimeline,
-    readUptoEventIdRef,
-  ]);
+  // A failed page is not a verdict: retry once per epoch, after the request has settled.
+  useEffect(() => {
+    if (!backwardError) return undefined;
+    if (emptyRoomRetryRef.current >= 1) return undefined;
+    emptyRoomRetryRef.current += 1;
+    const timer = globalThis.setTimeout(() => {
+      emptyRoomLoadRef.current.attempted = false;
+      attemptEmptyRoomLoad();
+    }, 2000);
+    return () => globalThis.clearTimeout(timer);
+  }, [backwardError, attemptEmptyRoomLoad]);
 
   useEffect(() => {
     emptyRoomLoadRef.current = { attempted: false, skipKey: '' };
