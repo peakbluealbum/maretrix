@@ -733,6 +733,15 @@ export function useTimelineSync({
         ) {
           return;
         }
+        // A refresh that leaves the room empty is a new epoch, not a done deal: clear the guards so
+        // the mount-load can try once more rather than returning silently forever.
+        // Re-arm only a load that already ran: a room that never needed one (it had events at mount)
+        // must not start paginating because a reset briefly emptied it.
+        if (getTimelinesEventsCount(refreshedTimelines) === 0 && emptyRoomLoadRef.current.attempted) {
+          emptyRoomLoadRef.current.attempted = false;
+          emptyRoomLoadRef.current.skipKey = '';
+          seenEventsRef.current = false;
+        }
         applyLiveTimeline(refreshedTimelines);
         if (eventId) {
           void loadEventTimeline(eventId);
@@ -845,10 +854,10 @@ export function useTimelineSync({
       return;
     }
 
-    // Recorded once per distinct state, so a blank room is never ambiguous between "the load did
-    // not run" and "there was nothing to run".
-    if (decision.reason === 'nothing-to-try') {
-      const skipKey = `${eventsLength}:${canPaginateBack}`;
+    // Every skip is recorded, transition-only, so a blank room names its own reason instead of
+    // leaving "the fix did not run" and "there was nothing to run" indistinguishable.
+    if (decision.action === 'skip') {
+      const skipKey = `${decision.reason}:${eventsLength}:${canPaginateBack}`;
       if (emptyRoomLoadRef.current.skipKey !== skipKey) {
         emptyRoomLoadRef.current.skipKey = skipKey;
         timelineDebug.note(
@@ -875,6 +884,14 @@ export function useTimelineSync({
     emptyRoomLoadRef.current = { attempted: false, skipKey: '' };
     seenEventsRef.current = false;
   }, [room.roomId]);
+
+  // A failed or empty first attempt must not be permanent: clearing the guard when `backwardError`
+  // rises gives the room one more try per failure, so a room that lost its anchor can recover
+  // instead of being written off for the visit.
+  useEffect(() => {
+    if (!backwardError) return;
+    emptyRoomLoadRef.current.attempted = false;
+  }, [backwardError]);
 
   return {
     timeline,
