@@ -833,11 +833,10 @@ export function useTimelineSync({
       // the first render, and a guard burnt there would suppress the retry.
       emptyRoomLoadRef.current.attempted = true;
       // The anchored load sets a focused window, and `useLiveTimelineRefresh` stands down while one
-      // is focused — so release it once the window has rendered, or the room loads history and then
-      // never receives another message until the user finds "jump to present".
-      void loadEventTimeline(readUptoEventIdRef.current as string).then(() => {
-        if (!eventId) focusLiveTimeline();
-      });
+      // is focused. That state still shows the loaded history and offers "jump to present", which
+      // the UI knows how to leave; releasing it here would re-apply the *live* timeline — the empty
+      // one this fallback exists to escape — and discard the rows that just loaded.
+      void loadEventTimeline(readUptoEventIdRef.current as string);
       return;
     }
     if (decision.action === 'paginate') {
@@ -869,7 +868,6 @@ export function useTimelineSync({
     unreadInfo,
     handleTimelinePagination,
     loadEventTimeline,
-    focusLiveTimeline,
     readUptoEventIdRef,
   ]);
 
